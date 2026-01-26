@@ -7,8 +7,8 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/item_image_resolver.dart';
 import '../../../core/enums/scan_mode.dart';
 import '../../../data/services/shopping_list_service.dart';
-import '../../../data/services/scan_bill_service.dart';
 import '../../../data/services/pantry_add_service.dart';
+import '../../../new_service/ingredient_detection_service.dart';
 import '../../../data/services/ingredient_metrics_service.dart';
 import '../../../data/models/ingredient_model.dart';
 import '../../widgets/ingredient_row.dart';
@@ -51,7 +51,8 @@ class _PantryReviewIngredientsScreenState
             setState(() => _state = ReviewState.scanning);
 
             try {
-              final result = await ScanBillService().scanBill(widget.capturedImage!);
+              final response = await IngredientDetectionService().detectIngredients(widget.capturedImage!);
+              final result = response['data'];
 
               final uiEndTime = DateTime.now();
               debugPrint(" [UI] Scan result received at: ${uiEndTime.millisecondsSinceEpoch}");
@@ -65,22 +66,23 @@ class _PantryReviewIngredientsScreenState
                 debugPrint(" [UI] PANTRY MODE - Raw scan result: $result");
 
                 // Check if scan result has ingredients data directly
-                if (result.containsKey("ingredients_with_quantity")) {
-                  final ingredients = result["ingredients_with_quantity"];
+                if (response['ok'] == true && response.containsKey('data')) {
+                  final data = response['data'];
+                  final ingredients = data['ingredients'];
                   if (ingredients is List && ingredients.isNotEmpty) {
                     debugPrint(" [UI] PANTRY MODE - Direct ingredients found: $ingredients");
 
                     // Convert new API structure to expected format
                     final convertedIngredients = ingredients.map((item) => {
-                      "item": item["item"] ?? "Unknown",
-                      "quantity": item["quantity"] ?? 1,
-                      "unit": item["metrics"] ?? "pcs", // Use metrics field from new API
-                      "imageURL": item["imageURL"] ?? item["image_url"] ?? "", // Check both field names
-                      "match%": item["match%"] ?? 100,
+                      "item": item["name"] ?? "Unknown",
+                      "quantity": item["qty"] ?? 1,
+                      "unit": item["apx_unit"] ?? "pcs",
+                      "imageURL": item["image_url"] ?? "",
+                      "match%": ((item["confidence"] ?? 1.0) * 100).toInt(),
                     }).toList();
 
                     debugPrint(" [UI] Ingredients converted, navigating to review screen...");
-
+                    
                     if (!mounted) return;
 
                     Navigator.push(
@@ -100,86 +102,9 @@ class _PantryReviewIngredientsScreenState
                   }
                 }
 
-                // Fallback: Try to process raw text if no direct ingredients found
-                final rawText = result["raw_text"];
-                debugPrint(" PANTRY MODE - Raw text: $rawText");
-
-                
-                try {
-                  final pantryResult = await PantryAddService().processRawText(rawText);
-                  debugPrint(" PANTRY MODE - Pantry result: $pantryResult");
-                  
-                  final items = pantryResult["ingredients_with_quantity"];
-                  debugPrint(" PANTRY MODE - Items extracted: $items");
-
-                  if (!mounted) return;
-                  
-                  if (items != null && items.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => _ScannedIngredientsListScreen(
-                          items: List<Map<String, dynamic>>.from(items),
-                        ),
-                      ),
-                    ).then((_) {
-                      // When coming back from review screen, reset to confirm state
-                      if (mounted) {
-                        setState(() => _state = ReviewState.confirm);
-                      }
-                    });
-                  } else {
-                    // Fallback: Try to extract ingredients directly from scan result
-                    try {
-                      final List<Map<String, dynamic>> fallbackItems = [];
-                      
-                      // Check if scan result has ingredients data directly
-                      if (result.containsKey("ingredients_with_quantity")) {
-                        final ingredients = result["ingredients_with_quantity"];
-                        if (ingredients is List) {
-                          for (var item in ingredients) {
-                            if (item is Map && item.containsKey("item")) {
-                              fallbackItems.add({
-                                "item": item["item"] ?? "Unknown",
-                                "quantity": item["quantity"] ?? 1,
-                                "unit": item["unit"] ?? "pcs",
-                              });
-                            }
-                          }
-                        }
-                      }
-                      
-                      debugPrint(" PANTRY MODE - Fallback items: $fallbackItems");
-                      
-                      if (fallbackItems.isNotEmpty && mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => _ScannedIngredientsListScreen(
-                              items: fallbackItems,
-                            ),
-                          ),
-                        ).then((_) {
-                          // When coming back from review screen, reset to confirm state
-                          if (mounted) {
-                            setState(() => _state = ReviewState.confirm);
-                          }
-                        });
-                      } else {
-                        if (!mounted) return;
-                        setState(() => _state = ReviewState.failed);
-                      }
-                    } catch (fallbackError) {
-                      debugPrint(" PANTRY MODE - Fallback also failed: $fallbackError");
-                      if (!mounted) return;
-                      setState(() => _state = ReviewState.failed);
-                    }
-                  }
-                } catch (processingError) {
-                  debugPrint(" PANTRY MODE - Processing error: $processingError");
-                  if (!mounted) return;
-                  setState(() => _state = ReviewState.failed);
-                }
+                // Fallback (though unlikely with new API)
+                if (!mounted) return;
+                setState(() => _state = ReviewState.failed);
               }
             } catch (scanError) {
               debugPrint('General scanning error: $scanError');

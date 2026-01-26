@@ -54,14 +54,18 @@ class _LowStockItemsScreenState extends State<LowStockItemsScreen> {
 
   // Get pantry items from remote server (same as home screen)
   List<Map<String, dynamic>> get pantryItems {
-    return _remotePantryItems.map((item) => {
-      'name': item['name']?.toString() ?? '',
-      'quantity': (item['quantity'] as num?)?.toDouble() ?? 1.0,
-      'unit': item['unit']?.toString() ?? 'pcs',
-      'imageUrl': '', // Server doesn't provide imageUrl in list response
-      'price': (item['price'] as num?)?.toDouble() ?? 0.0,
-      'source': item['source']?.toString() ?? 'manual',
-      '_id': item['_id']?.toString() ?? '',
+    final pantryState = Provider.of<PantryState>(context, listen: false);
+    return _remotePantryItems.map((item) {
+      final name = item['name']?.toString() ?? '';
+      return {
+        'name': name,
+        'quantity': (item['quantity'] as num?)?.toDouble() ?? 1.0,
+        'unit': item['unit']?.toString() ?? 'pcs',
+        'imageUrl': pantryState.getItemImage(name) ?? '', 
+        'price': (item['price'] as num?)?.toDouble() ?? 0.0,
+        'source': item['source']?.toString() ?? 'manual',
+        '_id': item['_id']?.toString() ?? '',
+      };
     }).toList();
   }
 
@@ -200,37 +204,60 @@ class _LowStockItemsScreenState extends State<LowStockItemsScreen> {
           style: TextStyle(color: Colors.black),
         ),
       ),
-      body: lowStockItems.isEmpty
-        ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.inventory_2_outlined,
-                  size: 64,
-                  color: Colors.grey,
-                ),
-                SizedBox(height: 16),
-                Text(
-                  "No low stock items",
-                  style: TextStyle(
-                    fontSize: 18,
+      body: Consumer<PantryState>(
+        builder: (context, pantryState, child) {
+          // Re-calculate the pantry items with live image URLs
+          final livePantryItems = _remotePantryItems.map((item) {
+            final name = item['name']?.toString() ?? '';
+            return {
+              'name': name,
+              'quantity': (item['quantity'] as num?)?.toDouble() ?? 1.0,
+              'unit': item['unit']?.toString() ?? 'pcs',
+              'imageUrl': pantryState.getItemImage(name) ?? '', 
+              'price': (item['price'] as num?)?.toDouble() ?? 0.0,
+              'source': item['source']?.toString() ?? 'manual',
+              '_id': item['_id']?.toString() ?? '',
+            };
+          }).toList();
+
+          final lowStockItems = livePantryItems.where((item) {
+            final qty = item['quantity'] is num ? (item['quantity'] as num).toDouble() : 0;
+            return qty > 0 && qty <= 3;
+          }).toList();
+
+          if (lowStockItems.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.inventory_2_outlined,
+                    size: 64,
                     color: Colors.grey,
-                    fontWeight: FontWeight.w600,
                   ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  "Items with quantity ≤ 3 will appear here",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
+                  const SizedBox(height: 16),
+                  const Text(
+                    "No low stock items",
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          )
-        : ListView.builder(
+                  const SizedBox(height: 8),
+                  Text(
+                    "Items with quantity ≤ 3 will appear here",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: lowStockItems.length,
             itemBuilder: (context, index) {
@@ -239,15 +266,12 @@ class _LowStockItemsScreenState extends State<LowStockItemsScreen> {
               final qty = item['quantity'] as double;
               final unit = item['unit'].toString();
               
-              debugPrint('LowStock: $name -> quantity: $qty, unit: $unit');
-
               return IngredientRow(
                 emoji: ItemImageResolver.getEmojiForIngredient(name),
                 name: name,
                 matchPercent: 100,
                 quantity: qty.toInt(),
                 onRemove: () {
-                  // Show confirmation dialog before removing
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
@@ -260,7 +284,6 @@ class _LowStockItemsScreenState extends State<LowStockItemsScreen> {
                         ),
                         TextButton(
                           onPressed: () {
-                            // Remove from pantry items
                             setState(() {
                               _remotePantryItems.removeWhere((item) => item['name'] == name);
                             });
@@ -269,7 +292,7 @@ class _LowStockItemsScreenState extends State<LowStockItemsScreen> {
                               SnackBar(
                                 content: Text("$name removed from pantry"),
                                 backgroundColor: Colors.green,
-                                duration: Duration(seconds: 2),
+                                duration: const Duration(seconds: 2),
                               ),
                             );
                           },
@@ -280,11 +303,13 @@ class _LowStockItemsScreenState extends State<LowStockItemsScreen> {
                   );
                 },
                 onEdit: () => _editItem(name, qty, unit),
-                useImageService: false, // Low stock items don't have image URLs
-                imageUrl: null,
+                useImageService: true, 
+                imageUrl: item['imageUrl'] as String?,
               );
             },
-          ),
+          );
+        },
+      ),
     );
   }
 }

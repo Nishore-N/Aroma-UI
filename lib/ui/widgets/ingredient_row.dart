@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/utils/item_image_resolver.dart';
-import '../../../data/services/scan_bill_service.dart';
 
 class IngredientRow extends StatelessWidget {
   final String emoji;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../recipes/recipe_list_screen.dart';
 import '../../widgets/recipe_generation_animation.dart';
 import '../../../data/services/home_recipe_service.dart';
+import '../../../data/services/preference_api_service.dart';
 
 class CookingPreferenceScreen extends StatefulWidget {
   final List<Map<String, dynamic>> ingredients;
@@ -372,8 +373,13 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
             "Ingredients_Available": _workingIngredients,
           };
 
+          debugPrint("🧪 [UI] Preparing to generate recipes with preferences: $pref");
+          
           // Generate recipes during animation
-          final recipes = await _homeRecipeService.generateWeeklyRecipes(pref);
+          final recipesData = await PreferenceApiService.generateRecipes(_workingIngredients, pref);
+          debugPrint("🧪 [UI] API Response received in UI: $recipesData");
+          
+          final recipes = List<Map<String, dynamic>>.from(recipesData['data']?['recipes'] ?? []);
           
           // Wait for animation to show
           await Future.delayed(const Duration(seconds: 2));
@@ -392,6 +398,7 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
                   builder: (_) => RecipeListScreen(
                     ingredients: _workingIngredients,
                     preferences: pref,
+                    initialRecipes: recipes,
                   ),
                 ),
               );

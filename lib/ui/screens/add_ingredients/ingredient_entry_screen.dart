@@ -9,7 +9,6 @@ import 'review_ingredients_screen.dart';
 import '../../../core/enums/scan_mode.dart';
 import '../pantry/review_items_screen.dart';
 import '../pantry/pantry_review_ingredients_screen.dart';
-import '../../../data/services/scan_bill_service.dart';
 import '../../../data/services/pantry_add_service.dart';
 
 class IngredientEntryScreen extends StatelessWidget {

@@ -56,7 +56,7 @@ class _ReviewIngredientsListScreenState
 
     try {
       final result = widget.scanResult;
-      final ing = result["ingredients_with_quantity"] ?? [];
+      final ing = result["ingredients"] ?? [];
       debugPrint("🎯 [ReviewIngredientsListScreen] Processing ${ing.length} ingredients");
 
       _ingredients = ing.map<IngredientModel>((item) {
@@ -65,17 +65,18 @@ class _ReviewIngredientsListScreenState
         _priceMap[id] =
             double.tryParse(item["price"]?.toString() ?? "0") ?? 0.0;
         _quantityMap[id] =
-            int.tryParse(item["quantity"]?.toString() ?? "1") ?? 1;
-        _imageMap[id] = item["imageURL"]?.toString() ?? item["image_url"]?.toString() ?? ""; // Store image URL
-        debugPrint("🎯 [ReviewIngredientsListScreen] Image mapping for ${item["item"]}: ${_imageMap[id]}");
+            int.tryParse(item["qty"]?.toString() ?? "1") ?? 1;
+        _imageMap[id] = item["image_url"]?.toString() ?? ""; // Use image_url from new API
+        debugPrint("🎯 [ReviewIngredientsListScreen] Image mapping for ${item["name"]}: ${_imageMap[id]}");
 
-        // Use match percentage from backend if available, default to 100
-        final matchPercent = int.tryParse(item["match"]?.toString() ?? item["match%"]?.toString() ?? "100") ?? 100;
+        // Use confidence from backend if available, convert to percentage
+        final confidence = double.tryParse(item["confidence"]?.toString() ?? "1.0") ?? 1.0;
+        final matchPercent = (confidence * 100).toInt();
 
         return IngredientModel(
           id: id,
-          emoji: ItemImageResolver.getEmojiForIngredient(item["item"]?.toString() ?? ""),
-          name: item["item"]?.toString() ?? "",
+          emoji: ItemImageResolver.getEmojiForIngredient(item["name"]?.toString() ?? ""),
+          name: item["name"]?.toString() ?? "",
           match: matchPercent,
         );
       }).toList();

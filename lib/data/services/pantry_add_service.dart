@@ -36,7 +36,7 @@ class PantryAddService {
 
   Future<Map<String, dynamic>> _detectIngredientsAndQuantity(XFile image) async {
     FormData formData = FormData.fromMap({
-      'image': await MultipartFile.fromFile(image.path, filename: 'pantry_image.jpg'),
+      'file': await MultipartFile.fromFile(image.path, filename: 'pantry_image.jpg'),
     });
     
     final response = await _dio.post(

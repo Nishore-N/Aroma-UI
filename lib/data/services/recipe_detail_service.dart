@@ -9,66 +9,63 @@ class RecipeDetailService {
   static final Dio _dio = Dio(
     BaseOptions(
       baseUrl: ApiEndpoints.baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
     ),
   );
   
-  // Cache to store recipe details to avoid repeated API calls
-  static final Map<String, Map<String, dynamic>> _recipeDetailCache = {};
-
-  // Fetch recipe details from backend using legacy API
-  static Future<Map<String, dynamic>> fetchRecipeDetails(String recipeName) async {
-    // Return cached data if available
-    if (_recipeDetailCache.containsKey(recipeName)) {
-      final cachedData = _recipeDetailCache[recipeName]!;
-      return cachedData;
-    }
-
+  // Fetch recipe details from backend using recipeId
+  static Future<Map<String, dynamic>> fetchRecipeDetails(String recipeId) async {
     try {
-      // Use legacy generate-recipes-ingredient API for recipe details
+      // Use generate-recipes-ingredient API for recipe details with recipeId
+      debugPrint('🚀 [RecipeDetailService] Fetching details for recipeId: $recipeId');
+      debugPrint('🔗 [RecipeDetailService] URL: ${ApiEndpoints.generateRecipesIngredient}');
+      
       final response = await _dio.post(
         ApiEndpoints.generateRecipesIngredient,
         data: {
-          "dish_name": recipeName,
+          "recipeId": recipeId,
         },
       );
 
-      if (response.statusCode == 200) {
-        final data = response.data;
-        if (data is Map<String, dynamic>) {
-          _recipeDetailCache[recipeName] = data;
+      debugPrint('📥 [RecipeDetailService] Response Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final rawData = response.data;
+        debugPrint('📄 [RecipeDetailService] Raw Response Data: $rawData');
+        if (rawData is Map<String, dynamic> && rawData['ok'] == true) {
+          final data = rawData['data'] as Map<String, dynamic>;
+          debugPrint('🍱 [RecipeDetailService] Backend Data Keys: ${data.keys.join(', ')}');
+          // Cache removed as per user request to call every time
           return data;
+        } else {
+          debugPrint('⚠️ [RecipeDetailService] Response "ok" is not true or data is malformed');
         }
       }
       
       // Return empty structure if API fails
       return {
-        'Recipe Name': recipeName,
-        'Description': 'A delicious recipe prepared with fresh ingredients.',
-        'Ingredients Needed': {},
-        'Preparation Steps': [],
-        'Recipe Steps': [],
-        'Cooking Time': '30 minutes',
-        'Serving': '2',
-        'Meal_Type': 'Lunch',
-        'Nutrition': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
-        'Cookware': [],
+        '_id': recipeId,
+        'recipe_name': 'Unknown Recipe',
+        'description': 'A delicious recipe prepared with fresh ingredients.',
+        'ingredients': [],
+        'cooking_steps': [],
+        'preparation_steps': [],
+        'preferenceTag': '',
+        'cooking_time': '30 minutes',
       };
     } catch (e) {
       debugPrint('Error fetching recipe details: $e');
       // Return empty structure on error
       return {
-        'Recipe Name': recipeName,
-        'Description': 'A delicious recipe prepared with fresh ingredients.',
-        'Ingredients Needed': {},
-        'Preparation Steps': [],
-        'Recipe Steps': [],
-        'Cooking Time': '30 minutes',
-        'Serving': '2',
-        'Meal_Type': 'Lunch',
-        'Nutrition': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
-        'Cookware': [],
+        '_id': recipeId,
+        'recipe_name': 'Unknown Recipe',
+        'description': 'A delicious recipe prepared with fresh ingredients.',
+        'ingredients': [],
+        'cooking_steps': [],
+        'preparation_steps': [],
+        'preferenceTag': '',
+        'cooking_time': '30 minutes',
       };
     }
   }
@@ -76,32 +73,71 @@ class RecipeDetailService {
   /// Generate image for recipe or ingredient using the unified image API
   static Future<String?> generateImage(String name, {bool isRecipe = true}) async {
     try {
-      debugPrint("🖼️ [RecipeDetailService] Generating image for: $name (${isRecipe ? 'recipe' : 'ingredient'})");
+      // Sanitize name to avoid S3 metadata errors (Non-ASCII characters)
+      final String safeName = name.replaceAll(RegExp(r'[^\x00-\x7F]'), ' ').trim();
       
+      debugPrint("📤 [RecipeDetailService] Image API Payload: ${ {
+        "recipe_name": safeName,
+        "dish_name": safeName,
+        if (!isRecipe) "ingredient_name": safeName,
+      } }");
+
       final response = await _dio.post(
-        "/generate-image",
+        ApiEndpoints.generateImageUrl,
         data: {
-          if (isRecipe) "dish_name": name else "ingredient_name": name,
+          "recipe_name": safeName,
+          "dish_name": safeName,
+          if (!isRecipe) "ingredient_name": safeName,
         },
       );
       
-      if (response.statusCode == 200) {
-        final data = response.data;
-        if (data is Map<String, dynamic> && data.containsKey('image_url')) {
-          String imageUrl = data['image_url'].toString();
+      final data = response.data;
+      debugPrint("📄 [RecipeDetailService] Image API Response Body: $data");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (data is Map<String, dynamic>) {
+          String? imageUrl;
           
-          // Ensure HTTPS for S3 URLs
-          if (imageUrl.startsWith('http://') && imageUrl.contains('s3')) {
-            imageUrl = imageUrl.replaceFirst('http://', 'https://');
-            debugPrint("🔒 [RecipeDetailService] Converted S3 URL to HTTPS: $imageUrl");
+          // Check for direct keys or nested 'data' or 'results'
+          imageUrl = data['image_url']?.toString() ?? 
+                     data['imageUrl']?.toString() ?? 
+                     data['url']?.toString() ??
+                     data['image']?.toString();
+          
+          if (imageUrl == null && data['data'] is Map) {
+            final inner = data['data'] as Map;
+            imageUrl = inner['image_url']?.toString() ?? 
+                       inner['imageUrl']?.toString() ?? 
+                       inner['url']?.toString() ??
+                       inner['image']?.toString();
           }
           
-          debugPrint("✅ [RecipeDetailService] Image generated: $imageUrl");
-          return imageUrl;
+          if (imageUrl == null && data['results'] is Map) {
+            final results = data['results'] as Map;
+            if (results.isNotEmpty) {
+              final firstVal = results.values.first;
+              if (firstVal is Map) {
+                imageUrl = firstVal['image_url']?.toString() ?? 
+                           firstVal['imageUrl']?.toString() ??
+                           firstVal['url']?.toString();
+              }
+            }
+          }
+
+          if (imageUrl != null && imageUrl.isNotEmpty && imageUrl != "null") {
+            // Ensure HTTPS for S3 URLs
+            if (imageUrl.startsWith('http://') && imageUrl.contains('s3')) {
+              imageUrl = imageUrl.replaceFirst('http://', 'https://');
+              debugPrint("🔒 [RecipeDetailService] Converted S3 URL to HTTPS: $imageUrl");
+            }
+            
+            debugPrint("✅ [RecipeDetailService] Image generated: $imageUrl");
+            return imageUrl;
+          }
         }
       }
       
-      debugPrint("❌ [RecipeDetailService] Image generation failed: ${response.statusCode}");
+      debugPrint("❌ [RecipeDetailService] Image generation failed: ${response.statusCode}. Body: $data");
       return null;
     } catch (e) {
       debugPrint("❌ [RecipeDetailService] Image generation exception: $e");
@@ -130,7 +166,6 @@ class RecipeDetailService {
     if (kDebugMode) {
       print('⚡ [RecipeDetailService] Cache clearing DISABLED in INSTANT mode');
     }
-    _recipeDetailCache.clear();
   }
 
   /// Get service status

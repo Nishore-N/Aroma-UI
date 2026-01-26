@@ -5,16 +5,20 @@ import '../recipe_detail/recipe_detail_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/services/home_recipe_service.dart';
 import '../../../core/constants/api_endpoints.dart';
+import '../../../data/services/preference_api_service.dart';
+import '../../../data/services/recipe_detail_service.dart';
 import '../../widgets/recipe_card.dart';
 
 class RecipeListScreen extends StatefulWidget {
   final List<Map<String, dynamic>> ingredients;
   final Map<String, dynamic> preferences;
+  final List<dynamic>? initialRecipes;
 
   const RecipeListScreen({
     super.key,
     required this.ingredients,
     required this.preferences,
+    this.initialRecipes,
   });
 
   @override
@@ -23,10 +27,11 @@ class RecipeListScreen extends StatefulWidget {
 
 class _RecipeListScreenState extends State<RecipeListScreen> {
   final List<_RecipeData> _allRecipes = [];
+  final List<String> _excludedIds = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   bool _hasError = false;
 
-  int _visibleCount = 3;
   final Set<int> _likedIndices = {};
 
   final HomeRecipeService _homeRecipeService = HomeRecipeService();
@@ -34,67 +39,161 @@ class _RecipeListScreenState extends State<RecipeListScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchRecipes();
+    if (widget.initialRecipes != null && widget.initialRecipes!.isNotEmpty) {
+      _processRecipes(widget.initialRecipes!, append: false);
+    } else {
+      _fetchRecipes();
+    }
   }
 
-  // Background image generation removed
+  Future<void> _generateFallbackImageForRecipe(String title, int index) async {
+    try {
+      final imageUrl = await RecipeDetailService.generateImage(title);
+      if (imageUrl != null && mounted) {
+        setState(() {
+          // If the list has changed, we need to be careful with indexing
+          // But since we're using _allRecipes and it usually stays stable during initial gen:
+          if (index < _allRecipes.length && _allRecipes[index].title == title) {
+            _allRecipes[index].image = imageUrl;
+          }
+        });
+        debugPrint('✅ [RecipeListScreen] Fallback image generated for: $title');
+      }
+    } catch (e) {
+      debugPrint('❌ [RecipeListScreen] Error generating image for $title: $e');
+    }
+  }
 
-  Future<void> _fetchRecipes() async {
+  void _processRecipes(List<dynamic> recipeList, {bool append = false}) {
+    debugPrint('🔄 [RecipeListScreen] Processing ${recipeList.length} recipes (append: $append)');
     setState(() {
-      _isLoading = true;
+      if (!append) {
+        _allRecipes.clear();
+        _excludedIds.clear();
+      }
+      
+      for (var item in recipeList) {
+        if (item is! Map) {
+          debugPrint('⚠️ [RecipeListScreen] item is not a Map: $item');
+          continue;
+        }
+        
+        final Map<String, dynamic> itemMap = Map<String, dynamic>.from(item);
+        
+        // Robust ID extraction
+        final String? id = itemMap["_id"]?.toString() ?? 
+                           itemMap["id"]?.toString() ?? 
+                           itemMap["recipeId"]?.toString() ??
+                           itemMap["recipe_id"]?.toString();
+                           
+        if (id != null) {
+          if (!_excludedIds.contains(id)) {
+            _excludedIds.add(id);
+          }
+        } else {
+          debugPrint('⚠️ [RecipeListScreen] Recipe has no ID field! Keys: ${itemMap.keys.join(', ')}');
+        }
+
+        final recipeTitle = itemMap["recipe_name"] ?? itemMap["Dish"] ?? "Unknown Dish";
+        
+        // Robust Image extraction based on user snippet
+        String? recipeImageUrl;
+        
+        // Log all keys to see what's available
+        debugPrint('🔍 [RecipeListScreen] Keys for $recipeTitle: ${itemMap.keys.join(', ')}');
+        
+        if (itemMap["recipe_image_url"] != null && itemMap["recipe_image_url"].toString().isNotEmpty) {
+          recipeImageUrl = itemMap["recipe_image_url"].toString();
+        } else if (itemMap["image_url"] != null && itemMap["image_url"].toString().isNotEmpty) {
+          recipeImageUrl = itemMap["image_url"].toString();
+        } else if (itemMap["imageUrl"] != null && itemMap["imageUrl"].toString().isNotEmpty) {
+          recipeImageUrl = itemMap["imageUrl"].toString();
+        } else if (itemMap["image"] != null) {
+          if (itemMap["image"] is String && itemMap["image"].toString().isNotEmpty) {
+            recipeImageUrl = itemMap["image"].toString();
+          } else if (itemMap["image"] is Map) {
+            recipeImageUrl = itemMap["image"]["image_url"]?.toString() ?? 
+                           itemMap["image"]["url"]?.toString() ??
+                           itemMap["image"]["imageUrl"]?.toString();
+          }
+        } 
+        
+        if ((recipeImageUrl == null || recipeImageUrl.isEmpty) && itemMap["Image"] != null && itemMap["Image"] is Map) {
+          recipeImageUrl = itemMap["Image"]["image_url"]?.toString() ?? 
+                         itemMap["Image"]["url"]?.toString() ??
+                         itemMap["Image"]["imageUrl"]?.toString();
+        }
+        
+        // Final cleaning
+        if (recipeImageUrl != null) {
+          if (recipeImageUrl == "null" || recipeImageUrl.isEmpty) {
+            recipeImageUrl = null;
+          } else if (recipeImageUrl.startsWith('http://') && recipeImageUrl.contains('s3')) {
+            recipeImageUrl = recipeImageUrl.replaceFirst('http://', 'https://');
+          }
+        }
+
+        if (recipeImageUrl == null) {
+          debugPrint('🖼️ [RecipeListScreen] ❌ No image found for: $recipeTitle. Triggering local generation.');
+          _generateFallbackImageForRecipe(recipeTitle, _allRecipes.length);
+        } else {
+          debugPrint('🖼️ [RecipeListScreen] ✅ Image found for: $recipeTitle -> $recipeImageUrl');
+        }
+        
+        final recipe = _RecipeData(
+          image: recipeImageUrl ?? "",
+          title: recipeTitle,
+          cuisine: itemMap['cuisine'] ?? itemMap['Cuisine'] ?? widget.preferences['cuisine'] ?? "Indian",
+          time: "${widget.preferences['time'] ?? 30} min",
+          fullRecipeData: itemMap,
+        );
+
+        _allRecipes.add(recipe);
+      }
+
+      _isLoading = false;
+      _isLoadingMore = false;
       _hasError = false;
-      _allRecipes.clear();
+    });
+  }
+
+  Future<void> _fetchRecipes({bool isLoadMore = false}) async {
+    setState(() {
+      if (isLoadMore) {
+        _isLoadingMore = true;
+      } else {
+        _isLoading = true;
+      }
+      _hasError = false;
     });
 
     try {
-      final Map<String, dynamic> requestData = Map.from(widget.preferences);
-      requestData['Ingredients_Available'] = widget.ingredients.map((e) => e['item'] ?? e['name']).toList();
+      final recipesData = await PreferenceApiService.generateRecipes(
+        widget.ingredients, 
+        widget.preferences,
+        excludeRecipeIds: _excludedIds,
+      );
+      
+      debugPrint('📥 [RecipeListScreen] API Response keys: ${recipesData.keys.join(', ')}');
+      if (recipesData['data'] != null && recipesData['data'] is Map) {
+        debugPrint('🍱 [RecipeListScreen] data keys: ${recipesData['data'].keys.join(', ')}');
+      }
 
-      final recipeList = await _homeRecipeService.generateWeeklyRecipes(requestData);
+      final recipeList = List<dynamic>.from(
+        recipesData['data']?['recipes'] ?? 
+        recipesData['data']?['Recipes'] ?? 
+        recipesData['recipes'] ?? 
+        []
+      );
+      
+      debugPrint('📝 [RecipeListScreen] Found ${recipeList.length} recipes in response');
       
       if (recipeList.isNotEmpty) {
-        print('📋 Backend returned ${recipeList.length} recipes');
-        
-        for (var item in recipeList) {
-          if (item is! Map<String, dynamic>) continue;
-          
-          final recipeTitle = item["recipe_name"] ?? item["Dish"] ?? "Unknown Dish";
-          
-          String? recipeImageUrl;
-          if (item["recipe_image_url"] != null) {
-            recipeImageUrl = item["recipe_image_url"];
-          } else if (item["image"] != null) {
-            if (item["image"] is String) {
-              recipeImageUrl = item["image"];
-            } else if (item["image"] is Map) {
-              recipeImageUrl = item["image"]["image_url"]?.toString() ?? 
-                             item["image"]["url"]?.toString();
-            }
-          } else if (item["Image"] != null && item["Image"] is Map) {
-            recipeImageUrl = item["Image"]["image_url"]?.toString() ?? 
-                           item["Image"]["url"]?.toString();
-          }
-          
-          final recipe = _RecipeData(
-            image: recipeImageUrl ?? "",
-            title: recipeTitle,
-            cuisine: item['cuisine'] ?? item['Cuisine'] ?? widget.preferences['cuisine'] ?? "Indian",
-            time: "${widget.preferences['time'] ?? 30} min",
-            fullRecipeData: item,
-          );
-
-          _allRecipes.add(recipe);
-        }
-
-        // _generateRecipeImagesInBackground(_allRecipes);
-
-        setState(() {
-          _visibleCount = _allRecipes.length >= 3 ? 3 : _allRecipes.length;
-          _isLoading = false;
-        });
+        _processRecipes(recipeList, append: true);
       } else {
          setState(() {
           _isLoading = false;
+          _isLoadingMore = false;
         });
       }
     } catch (e) {
@@ -102,15 +201,14 @@ class _RecipeListScreenState extends State<RecipeListScreen> {
       setState(() {
         _hasError = true;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     }
   }
 
   void _loadMore() {
-    setState(() {
-      _visibleCount =
-          (_visibleCount + 2).clamp(0, _allRecipes.length);
-    });
+    if (_isLoadingMore) return;
+    _fetchRecipes(isLoadMore: true);
   }
 
   void _toggleLike(int index) {
@@ -152,15 +250,14 @@ class _RecipeListScreenState extends State<RecipeListScreen> {
 
             if (_isLoading)
               const Center(child: CircularProgressIndicator())
-            else if (_hasError)
+            else if (_hasError && _allRecipes.isEmpty)
               const Center(child: Text("Error loading recipes"))
             else
               Column(
                 children: [
-                  for (int i = 0;
-                      i < _visibleCount && i < _allRecipes.length;
-                      i++) ...[
+                   for (int i = 0; i < _allRecipes.length; i++) ...[
                     _RecipeCard(
+                      key: ValueKey('${_allRecipes[i].title}_${_allRecipes[i].image}'),
                       data: _allRecipes[i],
                       isLiked: _likedIndices.contains(i),
                       onToggleLike: () => _toggleLike(i),
@@ -174,23 +271,30 @@ class _RecipeListScreenState extends State<RecipeListScreen> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _visibleCount < _allRecipes.length
-                          ? _loadMore
-                          : null,
+                      onPressed: _loadMore,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFF6A45),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),
                         ),
                       ),
-                      child: const Text(
-                        'Load more recipes',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                        ),
-                      ),
+                      child: _isLoadingMore 
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.black,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Load more recipes',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
+                            ),
+                          ),
                     ),
                   ),
 
@@ -274,6 +378,7 @@ class _RecipeCard extends StatelessWidget {
   final Map<String, dynamic> preferences;
 
   const _RecipeCard({
+    super.key,
     required this.data,
     required this.isLiked,
     required this.onToggleLike,
@@ -290,7 +395,7 @@ class _RecipeCard extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
-              child: data.image.isNotEmpty
+              child: (data.image.isNotEmpty && (data.image.startsWith('http://') || data.image.startsWith('https://')))
                   ? CachedNetworkImage(
                       imageUrl: data.image,
                       fit: BoxFit.cover,
@@ -356,6 +461,16 @@ class _RecipeCard extends StatelessWidget {
                       Expanded(
                         child: GestureDetector(
                           onTap: () {
+                            final fullData = data.fullRecipeData;
+                            final recipeId = fullData["_id"]?.toString() ?? 
+                                             fullData["id"]?.toString() ?? 
+                                             fullData["recipeId"]?.toString() ??
+                                             fullData["recipe_id"]?.toString();
+                            
+                            debugPrint('👉 [RecipeListScreen] "Cook Now" clicked for: ${data.title}');
+                            debugPrint('📄 [RecipeListScreen] fullRecipeData keys: ${fullData.keys.join(', ')}');
+                            debugPrint('🆔 [RecipeListScreen] Extracted ID: $recipeId');
+                            
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -366,7 +481,8 @@ class _RecipeCard extends StatelessWidget {
                                   cuisine: preferences["cuisine"]?.toString() ?? "Indian",
                                   cookTime: preferences["time"]?.toString() ?? "30m",
                                   servings: int.tryParse(preferences["servings"]?.toString() ?? "4") ?? 4,
-                                  fullRecipeData: data.fullRecipeData,
+                                  recipeId: recipeId,
+                                  // fullRecipeData: data.fullRecipeData, // Force fetch full details
                                 ),
                               ),
                             );

@@ -21,7 +21,8 @@ class RecipeDetailScreen extends StatefulWidget {
   final String cuisine;
   final String cookTime;
   final int servings;
-  final Map<String, dynamic> fullRecipeData; // Complete backend data
+  final String? recipeId;
+  final Map<String, dynamic>? fullRecipeData; // Optional, can be fetched if null
 
   const RecipeDetailScreen({
     super.key,
@@ -31,7 +32,8 @@ class RecipeDetailScreen extends StatefulWidget {
     required this.cuisine,
     required this.cookTime,
     required this.servings,
-    required this.fullRecipeData,
+    this.recipeId,
+    this.fullRecipeData,
   });
 
   @override
@@ -42,6 +44,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   bool isExpanded = false;
   bool isFavorite = false;
   bool isSaved = false;
+  bool isLoading = false;
   int servings = 4;
   String cookTime = ""; 
 
@@ -55,6 +58,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   List<String> _cookwareItems = [];
   Map<String, dynamic> _nutrition = {}; 
   String _description = ""; 
+  String? _recipeName;
+  String? _recipeImage;
+  Map<String, dynamic>? _fullRecipeData;
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _ingredientsKey = GlobalKey();
@@ -62,6 +68,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   final GlobalKey _preparationKey = GlobalKey();
 
   int selectedTab = 0;
+
+  final Set<String> _pendingGenerations = {};
+  final Map<String, String> _locallyGeneratedImages = {};
 
   @override
   void initState() {
@@ -72,197 +81,215 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     
     debugPrint('🔍 RecipeDetailScreen initState called');
     
-    if (cookTime == "0" || cookTime.isEmpty) {
-      _extractCookingTimeFromBackend();
-    }
+    // Start generating images for initial ingredients parallely
+    _checkAndGenerateImages();
     
-    _extractBackendData();
+    if (widget.fullRecipeData != null) {
+      debugPrint('📦 [RecipeDetailScreen] Using provided fullRecipeData');
+      _fullRecipeData = widget.fullRecipeData;
+      _extractBackendData();
+    } else if (widget.recipeId != null) {
+      debugPrint('🔗 [RecipeDetailScreen] recipeId provided: ${widget.recipeId}, fetching details...');
+      _fetchFullRecipeDetails(widget.recipeId!);
+    } else {
+      debugPrint('❌ [RecipeDetailScreen] Error: Both fullRecipeData and recipeId are NULL');
+      setState(() {
+        isLoading = false;
+        // You might want to show an error UI here
+      });
+    }
   }
 
-  void _extractCookingTimeFromBackend() {
+  Future<void> _fetchFullRecipeDetails(String id) async {
+    debugPrint('🚀 [RecipeDetailScreen] Fetching full details for ID: $id');
+    setState(() => isLoading = true);
     try {
-      final recipeData = widget.fullRecipeData;
-      
-      final possibleTimeFields = [
-        "Cooking Time", "cooking_time", "total_time", "totalTime", 
-        "cook_time", "prep_time", "preparation_time", "time"
-      ];
-      
-      String extractedTime = "0";
-      for (final field in possibleTimeFields) {
-        if (recipeData[field] != null && recipeData[field].toString().isNotEmpty) {
-          extractedTime = recipeData[field].toString();
-          break;
-        }
-      }
-      
-      final numberMatch = RegExp(r'\d+').firstMatch(extractedTime);
-      if (numberMatch != null) {
-        final cookTimeMinutes = numberMatch.group(0) ?? "0";
-        if (cookTimeMinutes != "0") {
-          setState(() {
-            cookTime = '$cookTimeMinutes min';
-          });
-        }
+      final data = await RecipeDetailService.fetchRecipeDetails(id);
+      debugPrint('📥 [RecipeDetailScreen] Received data keys: ${data.keys.join(', ')}');
+      setState(() {
+        _fullRecipeData = data;
+        isLoading = false;
+      });
+      _extractBackendData();
+    } catch (e) {
+      debugPrint('❌ [RecipeDetailScreen] Error fetching recipe details: $e');
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _generateFallbackImage() async {
+    try {
+      final generatedUrl = await RecipeDetailService.generateImage(_recipeName ?? widget.title);
+      if (generatedUrl != null && mounted) {
+        setState(() {
+          _recipeImage = generatedUrl;
+        });
+        debugPrint('✅ [RecipeDetailScreen] Fallback image generated: $_recipeImage');
       }
     } catch (e) {
-      debugPrint('❌ Error extracting cooking time: $e');
+      debugPrint('❌ [RecipeDetailScreen] Error generating fallback image: $e');
     }
   }
 
   void _extractBackendData() {
+    debugPrint('🧪 [RecipeDetailScreen] _extractBackendData called');
     try {
-      final recipeData = widget.fullRecipeData;
+      final recipeData = _fullRecipeData;
+      if (recipeData == null) {
+        debugPrint('⚠️ [RecipeDetailScreen] _fullRecipeData is NULL');
+        return;
+      }
+      
+      debugPrint('📦 [RecipeDetailScreen] Extracting from data with keys: ${recipeData.keys.join(', ')}');
       
       setState(() {
+        _recipeName = recipeData["recipe_name"] ?? recipeData["Dish"] ?? widget.title;
         _description = recipeData["description"]?.toString() ?? "";
         
-        _nutrition = recipeData["nutrition"] ?? {};
-        
-        if (_nutrition.isEmpty) {
-          _nutrition = recipeData["nutritional_info"] ?? {};
-        }
-        if (_nutrition.isEmpty) {
-          _nutrition = recipeData["nutrients"] ?? {};
-        }
-        
-        if (_nutrition.isEmpty) {
-          _nutrition = {
-            "calories": recipeData["calories"] ?? recipeData["Calories"] ?? 0,
-            "protein": recipeData["protein"] ?? recipeData["Protein"] ?? 0,
-            "carbs": recipeData["carbs"] ?? recipeData["Carbohydrates"] ?? recipeData["carbohydrates"] ?? 0,
-            "fats": recipeData["fats"] ?? recipeData["Fat"] ?? recipeData["total_fat"] ?? 0,
-            "fiber": recipeData["fiber"] ?? recipeData["Fiber"] ?? 0,
-          };
-        }
-        
-        if (_nutrition.isEmpty || (_nutrition["calories"] == 0 && _nutrition["protein"] == 0)) {
-          final ingredients = recipeData["ingredients_with_quantity"] ?? recipeData["ingredients"] ?? [];
-          double totalCalories = 0;
-          double totalProtein = 0;
-          double totalCarbs = 0;
-          double totalFats = 0;
-          double totalFiber = 0;
-          
-          if (ingredients is List) {
-            for (var ingredient in ingredients) {
-              if (ingredient is Map && ingredient["macros"] is Map) {
-                final macros = ingredient["macros"] as Map<String, dynamic>;
-                
-                totalCalories += (macros["calories_kcal"] as num?)?.toDouble() ?? 0;
-                totalProtein += (macros["protein_g"] as num?)?.toDouble() ?? 0;
-                totalCarbs += (macros["carbohydrates_g"] as num?)?.toDouble() ?? 0;
-                totalFats += (macros["fat_g"] as num?)?.toDouble() ?? 0;
-                totalFiber += (macros["fiber_g"] as num?)?.toDouble() ?? 0;
-              }
-            }
-          }
-          
-          if (totalCalories > 0 || totalProtein > 0) {
-            _nutrition = {
-              "calories": totalCalories.round(),
-              "protein": totalProtein.toStringAsFixed(1),
-              "carbs": totalCarbs.toStringAsFixed(1),
-              "fats": totalFats.toStringAsFixed(1),
-              "fiber": totalFiber.toStringAsFixed(1),
-            };
+        // Image extraction variations
+        String? extractedImage;
+        if (recipeData["recipe_image_url"] != null && recipeData["recipe_image_url"].toString().isNotEmpty) {
+          extractedImage = recipeData["recipe_image_url"].toString();
+        } else if (recipeData["image_url"] != null && recipeData["image_url"].toString().isNotEmpty) {
+          extractedImage = recipeData["image_url"].toString();
+        } else if (recipeData["imageUrl"] != null && recipeData["imageUrl"].toString().isNotEmpty) {
+          extractedImage = recipeData["imageUrl"].toString();
+        } else if (recipeData["image"] != null) {
+          if (recipeData["image"] is String && recipeData["image"].toString().isNotEmpty) {
+            extractedImage = recipeData["image"].toString();
+          } else if (recipeData["image"] is Map) {
+            extractedImage = recipeData["image"]["image_url"]?.toString() ?? 
+                           recipeData["image"]["url"]?.toString();
           }
         }
+
+        // Prioritize extracted image, fallback to widget.image (from list screen)
+        _recipeImage = (extractedImage != null && extractedImage.isNotEmpty && extractedImage != "null")
+            ? extractedImage
+            : (widget.image.isNotEmpty && widget.image != "null") ? widget.image : null;
+
+        if (_recipeImage != null && _recipeImage!.startsWith('http://') && _recipeImage!.contains('s3')) {
+          _recipeImage = _recipeImage!.replaceFirst('http://', 'https://');
+        }
+
+        debugPrint('🖼️ [RecipeDetailScreen] Final image URL: $_recipeImage');
         
-        if (_nutrition.isEmpty || (_nutrition["calories"] == 0 && _nutrition["protein"] == 0)) {
-          _nutrition = {
-            "calories": 250,
-            "protein": 12,
-            "carbs": 35,
-            "fats": 8,
-            "fiber": 4,
-          };
+        // Fallback: If still no image, try to generate one based on recipe name
+        if (_recipeImage == null || _recipeImage!.isEmpty) {
+          debugPrint('🪄 [RecipeDetailScreen] No image found, attempting to generate fallback...');
+          debugPrint('🔍 [RecipeDetailScreen] Data keys: ${recipeData.keys.join(', ')}');
+          _generateFallbackImage();
         }
         
-        _cookingStepsDetailed = List<Map<String, dynamic>>.from(recipeData["cooking_steps"] ?? []);
+        // Extract cooking time
+        final possibleTimeFields = [
+          "cooking_time", "total_time", "time", "Cooking Time", "totalTime"
+        ];
         
-        if (_cookingStepsDetailed.isEmpty) {
-          final allIngredients = List<Map<String, dynamic>>.from(recipeData["ingredients_with_quantity"] ?? recipeData["ingredients"] ?? []);
-          _cookingStepsDetailed = [
-            {
-              'instruction': 'Prepare all ingredients',
-              'ingredients_used': allIngredients,
-              'tips': ['Wash and clean all ingredients before use'],
-            },
-            {
-              'instruction': 'Cook according to recipe instructions',
-              'ingredients_used': allIngredients,
-              'tips': ['Follow cooking times carefully'],
-            }
-          ];
-        } else {
-          final allIngredients = List<Map<String, dynamic>>.from(recipeData["ingredients_with_quantity"] ?? recipeData["ingredients"] ?? []);
-          
-          _cookingStepsDetailed = _cookingStepsDetailed.asMap().entries.map((entry) {
-            final stepIndex = entry.key;
-            final step = entry.value;
-            final instruction = (step['instruction'] ?? '').toString().toLowerCase();
-            
-            if (!step.containsKey('ingredients_used')) {
-              
-              List<Map<String, dynamic>> stepIngredients = [];
-              
-              for (var ingredient in allIngredients) {
-                final ingredientName = (ingredient['item'] ?? ingredient['name'] ?? '').toString().toLowerCase();
-                if (instruction.contains(ingredientName) || 
-                    instruction.contains(ingredientName.replaceAll(' ', '')) ||
-                    instruction.contains(ingredientName.split(' ')[0])) {
-                  stepIngredients.add(ingredient);
-                }
-              }
-              
-              if (stepIngredients.isEmpty) {
-                final totalSteps = _cookingStepsDetailed.length;
-                final ingredientsPerStep = (allIngredients.length / totalSteps).ceil();
-                final startIndex = stepIndex * ingredientsPerStep;
-                final endIndex = (startIndex + ingredientsPerStep).clamp(0, allIngredients.length);
-                
-                if (startIndex < allIngredients.length) {
-                  stepIngredients = allIngredients.sublist(startIndex, endIndex);
-                }
-              }
-              
-              if (stepIngredients.isEmpty && allIngredients.isNotEmpty) {
-                stepIngredients = [allIngredients[stepIndex % allIngredients.length]];
-              }
-              
-              step['ingredients_used'] = stepIngredients;
-            }
-            
-            return step;
-          }).toList();
+        for (final field in possibleTimeFields) {
+          if (recipeData[field] != null && recipeData[field].toString().isNotEmpty) {
+            cookTime = recipeData[field].toString();
+            break;
+          }
+        }
+        if (cookTime.isEmpty) cookTime = "30 min";
+        debugPrint('⏰ [RecipeDetailScreen] Extracted cookTime: $cookTime');
+        
+        // Extract nutrition
+        final rawNutrition = recipeData["nutrition"] ?? {};
+        _nutrition = {
+          "calories": rawNutrition["calories"] ?? recipeData["calories"] ?? 250,
+          "protein": rawNutrition["protein"] ?? recipeData["protein"] ?? 12,
+          "carbs": rawNutrition["carbs"] ?? recipeData["carbs"] ?? 35,
+          "fats": rawNutrition["fats"] ?? rawNutrition["fat"] ?? recipeData["fats"] ?? 8,
+          "fiber": rawNutrition["fiber"] ?? recipeData["fiber"] ?? 4,
+        };
+        debugPrint('🥗 [RecipeDetailScreen] Extracted nutrition: $_nutrition');
+        
+        // Extract cooking steps
+        final possibleStepFields = [
+          "cooking_steps", "preparation_steps", "Recipe Steps", "steps", "Cooking Steps", "directions"
+        ];
+        
+        List<dynamic> rawSteps = [];
+        for (final field in possibleStepFields) {
+          if (recipeData[field] != null && (recipeData[field] is List) && (recipeData[field] as List).isNotEmpty) {
+            rawSteps = recipeData[field];
+            debugPrint('📝 [RecipeDetailScreen] Found steps in field: $field');
+            break;
+          }
         }
         
+        _cookingStepsDetailed = [];
+        for (var step in rawSteps) {
+          if (step is Map) {
+            _cookingStepsDetailed.add(Map<String, dynamic>.from(step));
+          } else if (step is String) {
+            _cookingStepsDetailed.add({"instruction": step});
+          }
+        }
+
         _cookingSteps = _cookingStepsDetailed
-            .map((e) => (e['instruction'] ?? '').toString())
+            .map((e) => (e['instruction'] ?? e['step'] ?? e['text'] ?? '').toString())
             .where((s) => s.trim().isNotEmpty)
             .toList();
+        debugPrint('📝 [RecipeDetailScreen] Extracted ${_cookingSteps.length} cooking steps');
         
-        final tags = recipeData["tags"] ?? {};
-        _cookwareItems = List<String>.from(tags["cookware"] ?? []);
+        // Extract ingredients
+        final possibleIngredientFields = [
+          "ingredients", "ingredients_needed", "Ingredients Needed", "items", "components"
+        ];
         
-        if (_cookwareItems.isEmpty) {
-          _cookwareItems = ['Gas Stove', 'Pan', 'Blender'];
+        List<dynamic> rawIngredients = [];
+        for (final field in possibleIngredientFields) {
+          if (recipeData[field] != null && (recipeData[field] is List) && (recipeData[field] as List).isNotEmpty) {
+            rawIngredients = recipeData[field];
+            debugPrint('🍎 [RecipeDetailScreen] Found ingredients in field: $field');
+            break;
+          }
+        }
+
+        if (rawIngredients.isNotEmpty) {
+          _ingredientData = rawIngredients.map((ing) {
+            if (ing is Map) {
+              final name = ing['name'] ?? ing['item'] ?? ing['ingredient'] ?? '';
+              final qty = ing['qty'] ?? ing['quantity'] ?? ing['amount'] ?? '';
+              final unit = ing['unit'] ?? '';
+              
+              return {
+                'item': name,
+                'quantity': qty,
+                'unit': unit,
+                'image_url': ing['image_url'] ?? ing['imageUrl'] ?? ing['image'] ?? '',
+              };
+            } else {
+              return {
+                'item': ing.toString(),
+                'quantity': '',
+                'unit': '',
+                'image_url': '',
+              };
+            }
+          }).toList();
+        }
+        debugPrint('🍎 [RecipeDetailScreen] Extracted ${_ingredientData.length} ingredients');
+        
+        _cookwareItems = ['Gas Stove', 'Pan', 'Blender']; // Default fallbacks
+        if (recipeData['tags'] != null && recipeData['tags']['cookware'] != null) {
+          final List<dynamic> cw = recipeData['tags']['cookware'];
+          if (cw.isNotEmpty) {
+            _cookwareItems = cw.map((e) => e.toString()).toList();
+          }
         }
         
-        final backendIngredients = List<Map<String, dynamic>>.from(recipeData["ingredients_with_quantity"] ?? recipeData["ingredients"] ?? []);
-        _ingredientData = backendIngredients.isNotEmpty ? backendIngredients : widget.ingredients;
-        
         _reviewData = _generateSampleReviews(widget.title);
-        
+
+        // After extracting new ingredients, check if any need image generation
+        _checkAndGenerateImages();
       });
       
     } catch (e) {
-      debugPrint('❌ Error extracting backend data: $e');
-      setState(() {
-        _cookingSteps = [];
-        _cookingStepsDetailed = [];
-      });
+      debugPrint('❌ [RecipeDetailScreen] Error extracting backend data: $e');
     }
   }
 
@@ -300,6 +327,89 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     ];
   }
 
+  void _checkAndGenerateImages() {
+    for (var item in _ingredientData) {
+      final name = item['item']?.toString() ?? '';
+      final imageUrl = item['image_url']?.toString() ?? 
+                     item['imageUrl']?.toString() ?? 
+                     item['image']?.toString() ?? '';
+
+      if (name.isNotEmpty && imageUrl.isEmpty && !_locallyGeneratedImages.containsKey(name) && !_pendingGenerations.contains(name)) {
+        _generateImageForIngredient(name);
+      }
+    }
+  }
+
+  Future<void> _generateImageForIngredient(String name) async {
+    if (_pendingGenerations.contains(name)) return;
+
+    setState(() {
+      _pendingGenerations.add(name);
+    });
+
+    try {
+      final generatedUrl = await RecipeDetailService.generateImage(name, isRecipe: false);
+      if (mounted) {
+        if (generatedUrl != null) {
+          _onIngredientImageGenerated(name, generatedUrl);
+        }
+        setState(() {
+          _pendingGenerations.remove(name);
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ [RecipeDetailScreen] Error generating image for $name: $e');
+      if (mounted) {
+        setState(() {
+          _pendingGenerations.remove(name);
+        });
+      }
+    }
+  }
+
+  void _onIngredientImageGenerated(String name, String imageUrl) {
+    debugPrint('🖼️ [RecipeDetailScreen] Image generated for $name: $imageUrl');
+    setState(() {
+      _locallyGeneratedImages[name] = imageUrl;
+
+      // Update _ingredientData
+      for (var i = 0; i < _ingredientData.length; i++) {
+        if ((_ingredientData[i]['item']?.toString() ?? '') == name) {
+          _ingredientData[i] = {
+            ..._ingredientData[i],
+            'image_url': imageUrl,
+          };
+          break;
+        }
+      }
+
+      // Also update _cookingStepsDetailed if they contain this ingredient
+      for (var i = 0; i < _cookingStepsDetailed.length; i++) {
+        if (_cookingStepsDetailed[i]['ingredients_used'] != null) {
+          final ingredients = _cookingStepsDetailed[i]['ingredients_used'] as List;
+          bool updated = false;
+          for (var j = 0; j < ingredients.length; j++) {
+            if (ingredients[j] is Map) {
+              final ingName = ingredients[j]['item']?.toString() ?? 
+                            ingredients[j]['name'] ?? 
+                            ingredients[j]['ingredient'] ?? '';
+              if (ingName == name) {
+                ingredients[j] = {
+                  ...ingredients[j] as Map<String, dynamic>,
+                  'image_url': imageUrl,
+                };
+                updated = true;
+              }
+            }
+          }
+          if (updated) {
+            _cookingStepsDetailed[i]['ingredients_used'] = ingredients;
+          }
+        }
+      }
+    });
+  }
+
   Widget _content() {
     return Consumer<PantryState>(
       builder: (_, pantryState, __) {
@@ -315,7 +425,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-            Text(widget.title,
+            Text(_recipeName ?? widget.title,
                 style:
                     const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.black)),
             const SizedBox(height: 12),
@@ -409,6 +519,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     .map((e) =>
                         e['item']?.toString().toLowerCase() ?? '')
                     .toList(),
+                onImageGenerated: _onIngredientImageGenerated,
               ),
             ),
 
@@ -448,6 +559,16 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation(Color(0xFFFF6A45)),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.white,
       bottomNavigationBar: _bottomButton(),
@@ -463,14 +584,21 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             elevation: 0,
             backgroundColor: Colors.transparent,
             flexibleSpace: FlexibleSpaceBar(
-              background: widget.image.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: widget.image,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(color: Colors.grey[300]),
-                      errorWidget: (context, url, error) => Container(color: Colors.grey[300]),
-                    )
-                  : Container(color: Colors.grey[300]),
+              background: Builder(
+                builder: (context) {
+                  final displayUrl = (_recipeImage?.isNotEmpty ?? false) ? _recipeImage! : widget.image;
+                  final isValidUrl = displayUrl.isNotEmpty && (displayUrl.startsWith('http://') || displayUrl.startsWith('https://'));
+                  
+                  return isValidUrl
+                    ? CachedNetworkImage(
+                        imageUrl: displayUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(color: Colors.grey[300]),
+                        errorWidget: (context, url, error) => Container(color: Colors.grey[300]),
+                      )
+                    : Container(color: Colors.grey[300]);
+                }
+              ),
             ),
           ),
           SliverToBoxAdapter(

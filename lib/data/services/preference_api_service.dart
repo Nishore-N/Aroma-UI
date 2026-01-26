@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import '../../core/constants/api_endpoints.dart';
 
 class PreferenceApiService {
@@ -7,10 +8,11 @@ class PreferenceApiService {
 
   static Future<Map<String, dynamic>> generateRecipes(
     List<Map<String, dynamic>> ingredients,
-    Map<String, dynamic> preferences,
-  ) async {
+    Map<String, dynamic> preferences, {
+    List<String>? excludeRecipeIds,
+  }) async {
     try {
-      final url = Uri.parse(ApiEndpoints.generateRecipesIngredient);
+      final url = Uri.parse(ApiEndpoints.recipeGeneration);
 
       // ====================================================================
       // FUTURE USE: Advanced preference combinations system
@@ -73,27 +75,67 @@ class PreferenceApiService {
       */
       // ====================================================================
 
+      // Process ingredients: try to keep them as maps if they provide quantity, otherwise names
+      final processedIngredients = ingredients.map((e) {
+        if (e is Map) {
+          return e['item']?.toString() ?? e['name']?.toString() ?? '';
+        }
+        return e.toString();
+      }).where((name) => name.isNotEmpty).toList();
+
+      String mapValue(String key, dynamic value) {
+        String val = value.toString().toLowerCase().trim();
+        if (key == 'dietary') {
+          if (val.contains('non')) return 'non-veg';
+          if (val.contains('veg')) return 'veg';
+          return val;
+        }
+        if (key == 'cookingTime') {
+          // Extract numbers if possible
+          final numbers = RegExp(r'\d+').firstMatch(val);
+          if (numbers != null) return "${numbers.group(0)}min";
+          return val.replaceAll(' ', '');
+        }
+        if (key == 'cuisine') {
+          if (val.contains('indian')) return 'indian';
+          return val.replaceAll(' ', '');
+        }
+        return val.replaceAll(' ', '');
+      }
+
       // CURRENT: Simple single preference request
       final body = {
-        'Meal_Type': [preferences['meal_type'] ?? 'lunch'],
-        'Dietary_Restrictions': preferences['diet'] ?? 'None',
-        'Cookware_Utensils': preferences['cookware'] ?? 'None',
-        'Cooking_Time': preferences['time'] ?? '30 minutes',
-        'Cuisine_Preference': preferences['cuisine'] ?? 'Any',
-        'Serving': int.tryParse(preferences['servings']?.toString() ?? '1') ?? 1,
-        'Ingredients_Available': ingredients,
+        "userId": "65b2a7c8e9b0a1b2c3d4e5f6", // Mock userId as per example
+        "ingredients": processedIngredients,
+        "preferences": {
+          "mealType": mapValue('mealType', preferences['Meal_Type'] ?? preferences['meal_type'] ?? 'lunch'),
+          "dietary": mapValue('dietary', preferences['Dietary_Restrictions'] ?? preferences['diet'] ?? 'non-veg'),
+          "cuisine": mapValue('cuisine', preferences['Cuisine_Preference'] ?? preferences['cuisine'] ?? 'indian'),
+          "cookware": mapValue('cookware', preferences['Cookware_Available'] ?? preferences['Cookware_Utensils'] ?? preferences['cookware'] ?? 'pot'),
+          "cookingTime": mapValue('cookingTime', preferences['Cooking_Time'] ?? preferences['time'] ?? '30min'),
+        },
+        "exclude_recipe_ids": excludeRecipeIds ?? [],
+        "count": int.tryParse((preferences['Serving'] ?? preferences['servings'] ?? '3').toString()) ?? 3,
       };
+
+      final requestBody = jsonEncode(body);
+      
+      debugPrint("🚀 [PreferenceApiService] Sending request to: $url");
+      debugPrint("📦 [PreferenceApiService] Request Body: $requestBody");
 
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
+        body: requestBody,
       );
+      
+      debugPrint("📥 [PreferenceApiService] Response Status: ${response.statusCode}");
+      debugPrint("📄 [PreferenceApiService] Response Body: ${response.body}");
 
-      if (response.statusCode == 200 || response.statusCode == 202) {
+      if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 202) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to fetch recipes: ${response.statusCode}');
+        throw Exception('Failed to fetch recipes: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       throw Exception('Error generating recipes: $e');

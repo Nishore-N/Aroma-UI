@@ -133,9 +133,14 @@ class _PantrySearchAddScreenState extends State<PantrySearchAddScreen> {
                           color: Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: ItemImageResolver.getImageWidget(
-                          displayName,
-                          size: 44,
+                        child: Consumer<PantryState>(
+                          builder: (context, pantryState, child) {
+                            return ItemImageResolver.getImageWidget(
+                              displayName,
+                              size: 44,
+                              imageUrl: pantryState.getItemImage(displayName),
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -373,9 +378,14 @@ class _PantrySearchAddScreenState extends State<PantrySearchAddScreen> {
 
                       return Row(
                         children: [
-                          ItemImageResolver.getImageWidget(
-                            name,
-                            size: 48,
+                          Consumer<PantryState>(
+                            builder: (context, pantryState, child) {
+                              return ItemImageResolver.getImageWidget(
+                                name,
+                                size: 48,
+                                imageUrl: pantryState.getItemImage(name),
+                              );
+                            },
                           ),
                           const SizedBox(width: 12),
                           Expanded(

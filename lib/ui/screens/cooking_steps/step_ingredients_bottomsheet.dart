@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/utils/item_image_resolver.dart';
+import '../../../core/utils/recipe_formatter.dart';
 
 class StepIngredientsBottomSheet extends StatelessWidget {
   final List<Map<String, dynamic>> stepIngredients;
   final List<Map<String, dynamic>>? allIngredients;
   final int? currentStepIndex;
+  final int servings;
+  final Map<String, String> locallyGeneratedImages; // Add this
   bool get showAllIngredients => allIngredients != null && currentStepIndex != null;
 
   const StepIngredientsBottomSheet({
@@ -14,7 +16,11 @@ class StepIngredientsBottomSheet extends StatelessWidget {
     required this.stepIngredients,
     this.allIngredients,
     this.currentStepIndex,
+    this.servings = 4,
+    this.locallyGeneratedImages = const {}, // Add this
   });
+
+  // ... (rest of the class)
 
   Widget _buildIngredientIcon(dynamic icon, String ingredientName) {
     if (icon is String && icon.isNotEmpty && (icon.startsWith('http://') || icon.startsWith('https://'))) {
@@ -105,6 +111,8 @@ class StepIngredientsBottomSheet extends StatelessWidget {
                             stepIngredients: stepIngredients,
                             allIngredients: showAllIngredients ? null : allIngredients,
                             currentStepIndex: showAllIngredients ? null : currentStepIndex,
+                            servings: servings,
+                            locallyGeneratedImages: locallyGeneratedImages,
                           ),
                         );
                       },
@@ -129,11 +137,17 @@ class StepIngredientsBottomSheet extends StatelessWidget {
                     children: (showAllIngredients ? allIngredients! : stepIngredients).map<Widget>(
                       (item) {
                         final name = (item['item'] ?? 'Ingredient').toString();
-                        final qty = (item['quantity']?.toString() ?? '');
+                        final baseQty = item['quantity'] ?? item['qty'] ?? '';
+                        final unit = item['unit']?.toString() ?? '';
+                        final qty = RecipeFormatter.formatQuantity(baseQty, servings, unit);
                         
                         var imageUrl = item['image_url']?.toString() ?? 
                                        item['imageUrl']?.toString() ?? 
                                        item['image']?.toString() ?? '';
+                        
+                        if (imageUrl.isEmpty) {
+                          imageUrl = locallyGeneratedImages[name] ?? '';
+                        }
                         
                         if (imageUrl.isEmpty && allIngredients != null) {
                           for (final allIng in allIngredients!) {

@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import '../../../../state/pantry_state.dart';
 import '../../../data/services/shopping_list_service.dart';
 import '../../../data/services/pantry_list_service.dart';
-import '../../../data/services/pantry_list_service.dart';
+import '../../../data/services/pantry_image_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/utils/category_engine.dart';
 import '../../../core/utils/item_image_resolver.dart';
 import 'pantry_empty_screen.dart';
@@ -29,6 +30,7 @@ class PantryHomeScreen extends StatefulWidget {
 
 class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBindingObserver {
   final PantryListService _pantryListService = PantryListService();
+  final PantryImageService _imageService = PantryImageService();
   List<Map<String, dynamic>> _remotePantryItems = [];
   bool _isLoading = false;
 
@@ -70,11 +72,35 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
         _isLoading = false;
       });
       print('📦 Loaded ${pantryItems.length} remote pantry items: ${pantryItems.map((item) => item['name']).toList()}');
+      
+      // Trigger image generation for missing items
+      _generateMissingImages(pantryItems);
     } catch (e) {
       print('❌ Error loading remote pantry items: $e');
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _generateMissingImages(List<Map<String, dynamic>> items) async {
+    final pantryState = Provider.of<PantryState>(context, listen: false);
+    final List<String> itemNames = items.map((e) => e['name']?.toString() ?? '').where((name) => name.isNotEmpty).toList();
+    
+    // Check if we need to generate images
+    final currentCache = await _imageService.getCachedImages();
+    final missing = itemNames.where((name) => !currentCache.containsKey(name)).toList();
+    
+    if (missing.isNotEmpty) {
+      debugPrint('🎨 [PantryHome] Found ${missing.length} items missing images. Starting generation...');
+      
+      // We can do this in the background
+      for (final name in missing) {
+        final url = await _imageService.generateItemImage(name);
+        if (url != null) {
+          await pantryState.updateItemImage(name, url);
+        }
+      }
     }
   }
 
@@ -85,14 +111,18 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
 
   // Get pantry items from remote server
   List<Map<String, dynamic>> get pantryItems {
-    return _remotePantryItems.map((item) => {
-      'name': item['name']?.toString() ?? '',
-      'quantity': (item['quantity'] as num?)?.toDouble() ?? 1.0,
-      'unit': item['unit']?.toString() ?? 'pcs',
-      'imageUrl': '', // Server doesn't provide imageUrl in list response
-      'price': (item['price'] as num?)?.toDouble() ?? 0.0,
-      'source': item['source']?.toString() ?? 'manual',
-      '_id': item['_id']?.toString() ?? '',
+    final pantryState = Provider.of<PantryState>(context, listen: false);
+    return _remotePantryItems.map((item) {
+      final name = item['name']?.toString() ?? '';
+      return {
+        'name': name,
+        'quantity': (item['quantity'] as num?)?.toDouble() ?? 1.0,
+        'unit': item['unit']?.toString() ?? 'pcs',
+        'imageUrl': pantryState.getItemImage(name) ?? '', 
+        'price': (item['price'] as num?)?.toDouble() ?? 0.0,
+        'source': item['source']?.toString() ?? 'manual',
+        '_id': item['_id']?.toString() ?? '',
+      };
     }).toList();
   }
 
@@ -105,9 +135,9 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
   }
 
   // ---------- CATEGORY ----------
-  Map<String, List<Map<String, dynamic>>> get groupedItems {
+  Map<String, List<Map<String, dynamic>>> _getGroupedItems(List<Map<String, dynamic>> items) {
     final Map<String, List<Map<String, dynamic>>> map = {};
-    for (final item in pantryItems) {
+    for (final item in items) {
       final category = CategoryEngine.getCategory(item['name']);
       map.putIfAbsent(category, () => []);
       map[category]!.add(item);
@@ -205,96 +235,117 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
         ],
       ),
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ---------- SEARCH ----------
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PantrySearchAddScreen(),
-                  ),
-                );
-              },
-              child: AbsorbPointer(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: "Search Items",
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+      body: Consumer<PantryState>(
+        builder: (context, pantryState, child) {
+          // Re-calculate the pantry items with the latest image URLs from state
+          final livePantryItems = _remotePantryItems.map((item) {
+            final name = item['name']?.toString() ?? '';
+            return {
+              'name': name,
+              'quantity': (item['quantity'] as num?)?.toDouble() ?? 1.0,
+              'unit': item['unit']?.toString() ?? 'pcs',
+              'imageUrl': pantryState.getItemImage(name) ?? '', 
+              'price': (item['price'] as num?)?.toDouble() ?? 0.0,
+              'source': item['source']?.toString() ?? 'manual',
+              '_id': item['_id']?.toString() ?? '',
+            };
+          }).toList();
 
-            const SizedBox(height: 16),
+          final liveGroupedItems = _getGroupedItems(livePantryItems);
 
-                      // ---------- INFO CARDS ----------
-            Row(
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ShoppingListScreen(),
+                // ---------- SEARCH ----------
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PantrySearchAddScreen(),
+                      ),
+                    );
+                  },
+                  child: AbsorbPointer(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: "Search Items",
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
                         ),
-                      );
-                    },
-                    child: Consumer<ShoppingListService>(
-  builder: (_, shoppingService, __) {
-    return _infoCard(
-      shoppingService.items.length.toString(),
-      "items",
-      "in shopping list",
-    );
-  },
-),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => LowStockItemsScreen(),
-                        ),
-                      );
-                    },
-                    child: _infoCard(
-                      lowStockItemCount.toString(),
-                      "items",
-                      "in low stock",
+                      ),
                     ),
                   ),
                 ),
+
+                const SizedBox(height: 16),
+
+                // ---------- INFO CARDS ----------
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ShoppingListScreen(),
+                            ),
+                          );
+                        },
+                        child: Consumer<ShoppingListService>(
+                          builder: (_, shoppingService, __) {
+                            return _infoCard(
+                              shoppingService.items.length.toString(),
+                              "items",
+                              "in shopping list",
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => LowStockItemsScreen(),
+                            ),
+                          );
+                        },
+                        child: _infoCard(
+                          lowStockItemCount.toString(),
+                          "items",
+                          "in low stock",
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // ---------- CATEGORIES ----------
+                ...liveGroupedItems.entries.map((e) {
+                  return _categorySection(
+                    title: e.key,
+                    items: e.value,
+                    allPantryItems: livePantryItems, // Pass the live items
+                  );
+                }),
               ],
             ),
-
-            const SizedBox(height: 24),
-
-            // ---------- CATEGORIES ----------
-            ...groupedItems.entries.map((e) {
-              return _categorySection(
-                title: e.key,
-                items: e.value,
-              );
-            }),
-          ],
-        ),
+          );
+        },
       ),
 
       floatingActionButton: FloatingActionButton.extended(
@@ -351,6 +402,7 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
   Widget _categorySection({
   required String title,
   required List<Map<String, dynamic>> items,
+  required List<Map<String, dynamic>> allPantryItems,
 }) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -374,7 +426,7 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
                 MaterialPageRoute(
                   builder: (_) => CategoryItemsScreen(
           category: title, // 🔥 PASS CATEGORY NAME
-          allItems: pantryItems,
+          allItems: allPantryItems,
                   ),
                 ),
               );

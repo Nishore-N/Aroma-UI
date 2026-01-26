@@ -7,7 +7,6 @@ import 'dart:typed_data';
 
 import '../../../core/theme/app_colors.dart';
 import 'review_ingredients_screen.dart';
-import '../../../data/services/scan_bill_service.dart';
 import '../../../core/enums/scan_mode.dart';
 import '../../../data/services/pantry_add_service.dart';
 import '../pantry/pantry_review_ingredients_screen.dart';

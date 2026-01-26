@@ -13,8 +13,8 @@ import '../../../core/constants/asset_paths.dart';
 import '../../../core/enums/scan_mode.dart';
 import '../../../widgets/primary_button.dart';
 import 'review_ingredients_list_screen.dart';
-import '../../../data/services/scan_bill_service.dart';
 import '../../../data/services/pantry_add_service.dart';
+import '../../../new_service/ingredient_detection_service.dart';
 import '../pantry/review_items_screen.dart';
 
 import 'package:lottie/lottie.dart';
@@ -60,7 +60,8 @@ class _ReviewIngredientsScreenState extends State<ReviewIngredientsScreen> {
             setState(() => _state = ReviewState.scanning);
 
             try {
-              final result = await ScanBillService().scanBill(widget.capturedImage!);
+              final response = await IngredientDetectionService().detectIngredients(widget.capturedImage!);
+              final result = response['data'];
 
               if (!mounted) return;
 
@@ -69,23 +70,23 @@ class _ReviewIngredientsScreenState extends State<ReviewIngredientsScreen> {
                 debugPrint(" PANTRY MODE - Raw scan result: $result");
                 
                 // Check if scan result has ingredients data directly from new API
-                if (result.containsKey("ingredients_with_quantity")) {
-                  final ingredients = result["ingredients_with_quantity"];
+                if (result.containsKey("ingredients")) {
+                  final ingredients = result["ingredients"];
                   if (ingredients is List && ingredients.isNotEmpty) {
                     debugPrint(" PANTRY MODE - Direct ingredients found: $ingredients");
                     
                     // Convert new API structure to expected format with nutritional data
                     final convertedIngredients = ingredients.map((item) => {
-                      "item": item["item"] ?? "Unknown",
-                      "quantity": item["quantity"] ?? 1,
-                      "unit": item["unit"] ?? "pcs",
-                      "imageURL": item["imageURL"] ?? "",
-                      "match%": item["match%"] ?? 100,
-                      "macros": item["macros"] ?? {},
-                      "calories": item["macros"]?["calories_kcal"] ?? 0,
-                      "protein": item["macros"]?["protein_g"] ?? 0,
-                      "carbs": item["macros"]?["carbohydrates_g"] ?? 0,
-                      "fat": item["macros"]?["fat_g"] ?? 0,
+                      "item": item["name"] ?? "Unknown",
+                      "quantity": item["qty"] ?? 1,
+                      "unit": item["apx_unit"] ?? "pcs",
+                      "imageURL": item["image_url"] ?? "",
+                      "match%": ((item["confidence"] ?? 1.0) * 100).toInt(),
+                      "macros": {},
+                      "calories": 0,
+                      "protein": 0,
+                      "carbs": 0,
+                      "fat": 0,
                     }).toList();
                     
                     if (!mounted) return;
@@ -102,130 +103,14 @@ class _ReviewIngredientsScreenState extends State<ReviewIngredientsScreen> {
                   }
                 }
                 
-                final rawText = result["raw_text"];
-                debugPrint(" PANTRY MODE - Raw text: $rawText");
+                // Fallback (though unlikely with new API)
+                final rawText = result["raw_text"] ?? "";
+                debugPrint(" PANTRY MODE - Raw text fallback: $rawText");
                 
-                try {
-                  final pantryResult = await PantryAddService().processRawText(rawText);
-                  debugPrint(" PANTRY MODE - Pantry result: $pantryResult");
-                  
-                  final items = pantryResult["ingredients_with_quantity"];
-                  debugPrint(" PANTRY MODE - Items extracted: $items");
-
-                  if (!mounted) return;
-                  
-                  if (items != null && items.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ReviewItemsScreen(
-                          items: List<Map<String, dynamic>>.from(items),
-                        ),
-                      ),
-                    );
-                  } else {
-                    // Fallback: Try to extract ingredients directly from scan result
-                    try {
-                      final List<Map<String, dynamic>> fallbackItems = [];
-                      
-                      // Check if scan result has ingredients data directly
-                      if (result.containsKey("ingredients_with_quantity")) {
-                        final ingredients = result["ingredients_with_quantity"];
-                        if (ingredients is List) {
-                          for (var item in ingredients) {
-                            if (item is Map && item.containsKey("item")) {
-                              fallbackItems.add({
-                                "item": item["item"] ?? "Unknown",
-                                "quantity": item["quantity"] ?? 1,
-                                "unit": item["unit"] ?? "pcs",
-                                "imageURL": item["imageURL"] ?? "",
-                                "match%": item["match%"] ?? 100,
-                                "macros": item["macros"] ?? {},
-                                "calories": item["macros"]?["calories_kcal"] ?? 0,
-                                "protein": item["macros"]?["protein_g"] ?? 0,
-                                "carbs": item["macros"]?["carbohydrates_g"] ?? 0,
-                                "fat": item["macros"]?["fat_g"] ?? 0,
-                              });
-                            }
-                          }
-                        }
-                      }
-                      
-                      debugPrint(" PANTRY MODE - Fallback items: $fallbackItems");
-                      
-                      if (fallbackItems.isNotEmpty && mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ReviewItemsScreen(
-                              items: fallbackItems,
-                            ),
-                          ),
-                        );
-                      } else {
-                        if (!mounted) return;
-                        setState(() => _state = ReviewState.failed);
-                      }
-                    } catch (fallbackError) {
-                      debugPrint(" PANTRY MODE - Fallback also failed: $fallbackError");
-                      if (!mounted) return;
-                      setState(() => _state = ReviewState.failed);
-                    }
-                  }
-                } catch (e) {
-                  debugPrint(" PANTRY MODE - Processing error: $e");
-                  
-                  // Fallback: Try to extract ingredients directly from scan result
-                  try {
-                    final List<Map<String, dynamic>> fallbackItems = [];
-                    
-                    // Check if scan result has ingredients data directly
-                    if (result.containsKey("ingredients_with_quantity")) {
-                      final ingredients = result["ingredients_with_quantity"];
-                      if (ingredients is List) {
-                        for (var item in ingredients) {
-                          if (item is Map && item.containsKey("item")) {
-                            fallbackItems.add({
-                              "item": item["item"] ?? "Unknown",
-                              "quantity": item["quantity"] ?? 1,
-                              "unit": item["unit"] ?? "pcs",
-                              "imageURL": item["imageURL"] ?? "",
-                              "match%": item["match%"] ?? 100,
-                              "macros": item["macros"] ?? {},
-                              "calories": item["macros"]?["calories_kcal"] ?? 0,
-                              "protein": item["macros"]?["protein_g"] ?? 0,
-                              "carbs": item["macros"]?["carbohydrates_g"] ?? 0,
-                              "fat": item["macros"]?["fat_g"] ?? 0,
-                            });
-                          }
-                        }
-                      }
-                    }
-                    
-                    debugPrint(" PANTRY MODE - Fallback items: $fallbackItems");
-                    
-                    if (fallbackItems.isNotEmpty && mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ReviewItemsScreen(
-                            items: fallbackItems,
-                          ),
-                        ),
-                      );
-                    } else {
-                      if (!mounted) return;
-                      setState(() => _state = ReviewState.failed);
-                    }
-                  } catch (fallbackError) {
-                    debugPrint(" PANTRY MODE - Fallback also failed: $fallbackError");
-                    if (!mounted) return;
-                    setState(() => _state = ReviewState.failed);
-                  }
-                }
+                if (!mounted) return;
+                setState(() => _state = ReviewState.failed);
               } else {
                 debugPrint("🎯 [NORMAL MODE] Raw scan result: $result");
-                debugPrint("🎯 [NORMAL MODE] Result keys: ${result.keys.toList()}");
                 
                 Navigator.push(
                   context,
@@ -240,6 +125,7 @@ class _ReviewIngredientsScreenState extends State<ReviewIngredientsScreen> {
                 });
               }
             } catch (e) {
+              debugPrint("ERROR in ReviewIngredientsScreen: $e");
               setState(() => _state = ReviewState.failed);
             }
           },

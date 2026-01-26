@@ -265,10 +265,14 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                                   color: Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: ItemImageResolver.getImageWidget(
-                                  item['name'],
-                                  size: 64,
-                                  imageUrl: item['imageUrl'], // Pass imageUrl parameter
+                                child: Consumer<PantryState>(
+                                  builder: (context, pantryState, child) {
+                                    return ItemImageResolver.getImageWidget(
+                                      item['name'],
+                                      size: 64,
+                                      imageUrl: pantryState.getItemImage(item['name']) ?? item['imageUrl'],
+                                    );
+                                  },
                                 ),
                               ),
                               title: Row(

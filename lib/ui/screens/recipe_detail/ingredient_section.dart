@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
-import '../../../core/utils/item_image_resolver.dart';
-
+import '../../../core/utils/recipe_formatter.dart';
 import '../../../ui/widgets/ingredient_image_widget.dart';
+import '../../../core/utils/item_image_resolver.dart';
+import '../../../data/services/recipe_detail_service.dart';
 
 // ===============================
 // INGREDIENT SECTION (DYNAMIC)
 // ===============================
-class IngredientSection extends StatelessWidget {
+class IngredientSection extends StatefulWidget {
   final int servings;
   final Function(int) onServingChange;
   final List<Map<String, dynamic>> ingredientData; // scanned bill
   final List<String> availableIngredients;
+  final Function(String, String)? onImageGenerated; // Add callback
 
   const IngredientSection({
     super.key,
@@ -18,7 +20,14 @@ class IngredientSection extends StatelessWidget {
     required this.onServingChange,
     required this.ingredientData,
     this.availableIngredients = const [],
+    this.onImageGenerated,
   });
+
+  @override
+  State<IngredientSection> createState() => _IngredientSectionState();
+}
+
+class _IngredientSectionState extends State<IngredientSection> {
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +48,7 @@ class IngredientSection extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              "$servings Servings",
+              "${widget.servings} Servings",
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -47,8 +56,8 @@ class IngredientSection extends StatelessWidget {
               ),
             ),
             IngredientStepper(
-              servings: servings,
-              onChanged: onServingChange,
+              servings: widget.servings,
+              onChanged: widget.onServingChange,
             ),
           ],
         ),
@@ -56,39 +65,26 @@ class IngredientSection extends StatelessWidget {
         const SizedBox(height: 22),
 
         Column(
-          children: ingredientData.map((item) {
+          children: widget.ingredientData.map((item) {
             final name = item['item']?.toString() ?? '';
-            final qty = item['quantity'] ?? 1;
+            final qty = item['quantity'] ?? item['qty'] ?? 1;
+            final unit = item['unit']?.toString() ?? '';
             final imageUrl = item['image_url']?.toString() ?? 
                            item['imageUrl']?.toString() ?? 
                            item['image']?.toString() ?? '';
 
             return IngredientTile(
               name: name,
-              quantity: _formatQuantity(qty, servings),
-              icon: _emojiForIngredient(name),
+              quantity: RecipeFormatter.formatQuantity(qty, widget.servings, unit),
+              icon: '',
               isAvailable:
-                  availableIngredients.contains(name.toLowerCase()),
-              imageUrl: imageUrl, // Pass the image URL from backend
+                  widget.availableIngredients.contains(name.toLowerCase()),
+              imageUrl: imageUrl, // Use the image URL passed from parent
             );
           }).toList(),
         ),
       ],
     );
-  }
-
-  // ===============================
-  // HELPERS
-  // ===============================
-  String _formatQuantity(dynamic baseQty, int servings) {
-    final num qty =
-        baseQty is num ? baseQty : num.tryParse(baseQty.toString()) ?? 1;
-    return "${qty * servings}";
-  }
-
-  String _emojiForIngredient(String name) {
-    // Return empty string to use dynamic images instead
-    return '';
   }
 }
 

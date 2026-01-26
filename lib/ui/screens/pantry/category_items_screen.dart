@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../../state/pantry_state.dart';
 import '../../../core/utils/category_engine.dart';
 import '../../../core/utils/item_image_resolver.dart';
 
@@ -175,9 +177,16 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
         children: [
           // 🖼 GENERATED IMAGE
           ClipOval(
-            child: ItemImageResolver.getImageWidget(
-              item['name'],
-              size: 48,
+            child: Consumer<PantryState>(
+              builder: (context, pantryState, child) {
+                return ItemImageResolver.getImageWidget(
+                  item['name'],
+                  size: 48,
+                  imageUrl: item['imageUrl']?.isNotEmpty == true 
+                      ? item['imageUrl'] as String 
+                      : pantryState.getItemImage(item['name']),
+                );
+              },
             ),
           ),
 

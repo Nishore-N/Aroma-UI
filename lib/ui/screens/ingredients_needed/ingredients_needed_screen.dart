@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../cooking_steps/cooking_steps_screen.dart';
 import '../../../core/utils/item_image_resolver.dart';
+import '../../../core/utils/recipe_formatter.dart';
 
 class IngredientsNeededScreen extends StatelessWidget {
   final int servings;
@@ -9,13 +10,25 @@ class IngredientsNeededScreen extends StatelessWidget {
   final List<Map<String, dynamic>> steps;
   final String recipeName;
 
-  const IngredientsNeededScreen({
+   const IngredientsNeededScreen({
     super.key,
     required this.servings,
     required this.ingredients,
     required this.steps,
     required this.recipeName,
   });
+
+  Map<String, String> _extractGeneratedImages() {
+    final Map<String, String> generated = {};
+    for (var ing in ingredients) {
+      final name = (ing['item'] ?? ing['name'] ?? ing['ingredient'] ?? '').toString();
+      final url = ing['image_url']?.toString() ?? ing['imageUrl']?.toString() ?? ing['image']?.toString() ?? '';
+      if (name.isNotEmpty && url.isNotEmpty) {
+        generated[name] = url;
+      }
+    }
+    return generated;
+  }
 
   Widget _buildDefaultIngredientIcon() {
     return Padding(
@@ -180,7 +193,9 @@ class IngredientsNeededScreen extends StatelessWidget {
                     final item = ingredients[index];
                     // Get the name and quantity with fallbacks
                     final name = (item['name'] ?? item['ingredient'] ?? item['item'] ?? 'Ingredient').toString();
-                    final qty = (item['qty'] ?? item['quantity'] ?? item['amount'] ?? 'as needed').toString();
+                    final baseQty = item['qty'] ?? item['quantity'] ?? item['amount'] ?? 'as needed';
+                    final unit = item['unit']?.toString() ?? '';
+                    final qty = RecipeFormatter.formatQuantity(baseQty, servings, unit);
                     final icon = item['icon'] ?? '';
 
                     return Padding(
@@ -302,6 +317,8 @@ class IngredientsNeededScreen extends StatelessWidget {
                           currentStep: 1,
                           allIngredients: ingredients,
                           recipeName: recipeName,
+                          servings: servings,
+                          initialGeneratedImages: _extractGeneratedImages(),
                         ),
                       ),
                     );

@@ -3,17 +3,26 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PantryState extends ChangeNotifier {
-  final Map<String, double> _pantryQty = {};
-  final Map<String, String> _pantryUnit = {};
+  final Map<String, String> _itemImages = {};
   final List<PantryItem> _items = [];
 
-  Map<String, double> get pantryQty => _pantryQty;
-  Map<String, String> get pantryUnit => _pantryUnit;
+  // Consistent normalization for image keys
+  String _normalizeName(String name) => name.toLowerCase().trim();
+
+  Map<String, double> get pantryQty => { for (var item in _items) item.name : item.quantity };
+  Map<String, String> get pantryUnit => { for (var item in _items) item.name : item.unit };
   List<PantryItem> get items => List.from(_items);
 
-  // Add pantryImages getter for low stock screen compatibility
+  // Get image for an item - prioritize memory cache, then item property
+  String? getItemImage(String name) {
+    final normalized = _normalizeName(name);
+    if (_itemImages.containsKey(normalized)) return _itemImages[normalized];
+    final item = _items.firstWhere((e) => _normalizeName(e.name) == normalized, orElse: () => PantryItem(name: '', quantity: 0, unit: ''));
+    return item.imageUrl;
+  }
+
   Map<String, String> get pantryImages {
-    final Map<String, String> images = {};
+    final Map<String, String> images = Map.from(_itemImages);
     for (final item in _items) {
       if (item.imageUrl != null && item.imageUrl!.isNotEmpty) {
         images[item.name] = item.imageUrl!;
@@ -30,8 +39,7 @@ class PantryState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_storageKey);
 
-    _pantryQty.clear();
-    _pantryUnit.clear();
+    _itemImages.clear();
     _items.clear();
 
     if (raw != null) {
@@ -43,8 +51,6 @@ class PantryState extends ChangeNotifier {
         final unit = item['unit'] as String;
         final imageUrl = item['imageUrl'] as String?;
 
-        _pantryQty[name] = qty;
-        _pantryUnit[name] = unit;
         _items.add(
           PantryItem(
             name: name,
@@ -56,6 +62,19 @@ class PantryState extends ChangeNotifier {
       }
     }
 
+    // Load generated image cache
+    final imageCacheRaw = prefs.getString('pantry_image_cache');
+    if (imageCacheRaw != null) {
+      try {
+        final Map<String, dynamic> cache = jsonDecode(imageCacheRaw);
+        cache.forEach((key, value) {
+          _itemImages[_normalizeName(key)] = value.toString();
+        });
+      } catch (e) {
+        debugPrint("❌ Error loading image cache: $e");
+      }
+    }
+
     notifyListeners();
   }
 
@@ -63,8 +82,11 @@ class PantryState extends ChangeNotifier {
   // ADD / UPDATE ITEM
   Future<void> setItem(String name, double qty, String unit, {String? imageUrl}) async {
     debugPrint(" PANTRY SET: $name → $qty $unit $imageUrl"); // 
-    _pantryQty[name] = qty;
-    _pantryUnit[name] = unit;
+    
+    // Update image cache if a new URL is provided
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      _itemImages[_normalizeName(name)] = imageUrl;
+    }
 
     final index = _items.indexWhere((e) => e.name == name);
     if (index >= 0) {
@@ -72,7 +94,7 @@ class PantryState extends ChangeNotifier {
         name: name,
         quantity: qty,
         unit: unit,
-        imageUrl: imageUrl, // Pass imageUrl
+        imageUrl: imageUrl ?? _items[index].imageUrl, // Keep existing if null
       );
     } else {
       _items.add(
@@ -80,7 +102,7 @@ class PantryState extends ChangeNotifier {
           name: name,
           quantity: qty,
           unit: unit,
-          imageUrl: imageUrl, // Pass imageUrl
+          imageUrl: imageUrl,
         ),
       );
     }
@@ -89,7 +111,25 @@ class PantryState extends ChangeNotifier {
     notifyListeners();
   }
 
-  double getQty(String name) => _pantryQty[name] ?? 0;
+  // Update only the image for an item
+  Future<void> updateItemImage(String name, String imageUrl) async {
+    final normalized = _normalizeName(name);
+    _itemImages[normalized] = imageUrl;
+    
+    final index = _items.indexWhere((e) => _normalizeName(e.name) == normalized);
+    if (index >= 0) {
+      _items[index].imageUrl = imageUrl;
+    }
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pantry_image_cache', jsonEncode(_itemImages));
+    notifyListeners();
+  }
+
+  double getQty(String name) {
+    final item = _items.firstWhere((e) => e.name == name, orElse: () => PantryItem(name: '', quantity: 0, unit: ''));
+    return item.quantity;
+  }
 
   bool isLowStock(String name, {double threshold = 3}) {
     return getQty(name) > 0 && getQty(name) <= threshold;
@@ -98,12 +138,15 @@ class PantryState extends ChangeNotifier {
   // CLEAR ALL ITEMS
   Future<void> clearAllItems() async {
     debugPrint("🗑️ Clearing all pantry items from local state...");
-    _pantryQty.clear();
-    _pantryUnit.clear();
+    _itemImages.clear();
     _items.clear();
     await _savePantry();
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('pantry_image_cache');
+    
     notifyListeners();
-    debugPrint("✅ Local pantry state cleared");
+    debugPrint("✅ Local pantry state and image cache cleared");
   }
 
   // SAVE TO LOCAL STORAGE

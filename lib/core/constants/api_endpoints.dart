@@ -12,10 +12,12 @@ class ApiEndpoints {
   static String get pantryRemove => dotenv.env['PANTRY_REMOVE_URL']!;
   static String get detectQty => dotenv.env['DETECT_QTY_URL']!;
   static String get generateRecipesIngredient => dotenv.env['GENERATE_RECIPES_INGREDIENT_URL']!;
+  static String get recipeGeneration => dotenv.env['RECIPE_GENERATION_URL']!;
   static String get recipesWeekly => dotenv.env['RECIPES_WEEKLY_URL']!;
   static String get registerUser => dotenv.env['REGISTER_USER_URL']!;
   static String get loginUser => dotenv.env['LOGIN_USER_URL']!;
   static String get loginUserOtp => dotenv.env['LOGIN_USER_OTP_URL']!;
+  static String get generateImageUrl => dotenv.env['GENERATE_IMAGE_URL']!;
   static String get homescreenBanner => dotenv.env['homescreen_banner_url']!;
   // static String get paginationUrl => dotenv.env['pagination_url']!; // Keeping this as a possible fallback if needed, but logic will switch
 

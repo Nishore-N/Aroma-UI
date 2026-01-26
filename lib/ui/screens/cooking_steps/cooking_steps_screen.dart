@@ -7,12 +7,16 @@ import '../../../core/utils/extreme_spring_physics.dart';
 import 'step_ingredients_bottomsheet.dart';
 import 'step_timer_bottomsheet.dart';
 import '../completion/completion_screen.dart';
+import '../../../core/utils/recipe_formatter.dart';
+import '../../../data/services/recipe_detail_service.dart';
 
 class CookingStepsScreen extends StatefulWidget {
   final List<Map<String, dynamic>> steps;
   final int currentStep;
-  final List<Map<String, dynamic>> allIngredients;
+   final List<Map<String, dynamic>> allIngredients;
   final String recipeName;
+  final int servings;
+  final Map<String, String> initialGeneratedImages; // Add this
 
   const CookingStepsScreen({
     super.key,
@@ -20,6 +24,8 @@ class CookingStepsScreen extends StatefulWidget {
     required this.currentStep,
     required this.allIngredients,
     required this.recipeName,
+    this.servings = 4,
+    this.initialGeneratedImages = const {}, // Default to empty
   });
 
   @override
@@ -32,10 +38,71 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
   int _secondsRemaining = 0;
   bool _isTimerRunning = false;
   bool _isTimerSet = false;
+  late Map<String, String> _locallyGeneratedImages;
+  final Set<String> _pendingGenerations = {};
 
   @override
   void initState() {
     super.initState();
+    _locallyGeneratedImages = Map<String, String>.from(widget.initialGeneratedImages);
+    _checkAndGenerateImages();
+  }
+
+  void _checkAndGenerateImages() {
+    // Check allIngredients
+    for (var item in widget.allIngredients) {
+      _triggerGenerationIfMissing(item);
+    }
+
+    // Check current step ingredients
+    final step = widget.steps[widget.currentStep - 1];
+    if (step['ingredients_used'] != null && step['ingredients_used'] is List) {
+      for (var item in (step['ingredients_used'] as List)) {
+        if (item is Map<String, dynamic>) {
+          _triggerGenerationIfMissing(item);
+        }
+      }
+    }
+  }
+
+  void _triggerGenerationIfMissing(Map<String, dynamic> item) {
+    final name = (item['item'] ?? item['name'] ?? '').toString();
+    final imageUrl = item['image_url']?.toString() ?? 
+                   item['imageUrl']?.toString() ?? 
+                   item['image']?.toString() ?? '';
+
+    if (name.isNotEmpty && imageUrl.isEmpty && !_locallyGeneratedImages.containsKey(name) && !_pendingGenerations.contains(name)) {
+      _generateImageForIngredient(name);
+    }
+  }
+
+  Future<void> _generateImageForIngredient(String name) async {
+    if (_pendingGenerations.contains(name)) return;
+
+    setState(() {
+      _pendingGenerations.add(name);
+    });
+
+    try {
+      final generatedUrl = await RecipeDetailService.generateImage(name, isRecipe: false);
+      if (mounted) {
+        if (generatedUrl != null) {
+          setState(() {
+            _locallyGeneratedImages[name] = generatedUrl;
+          });
+        }
+        setState(() {
+          _pendingGenerations.remove(name);
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ [CookingStepsScreen] Error generating image for $name: $e');
+      if (mounted) {
+        setState(() {
+          _pendingGenerations.remove(name);
+        });
+      }
+    }
   }
 
   Widget _buildIngredientIcon(dynamic icon, String ingredientName) {
@@ -428,6 +495,8 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                           stepIngredients: stepIngredients,
                           allIngredients: widget.allIngredients,
                           currentStepIndex: widget.currentStep - 1,
+                          servings: widget.servings,
+                          locallyGeneratedImages: _locallyGeneratedImages,
                         ),
                       );
                     },
@@ -459,7 +528,9 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
               Column(
                 children: stepIngredients.map<Widget>((ingredient) {
                   final name = (ingredient['item'] ?? ingredient['name'] ?? 'Ingredient').toString();
-                  final qty = (ingredient['quantity']?.toString() ?? ingredient['qty']?.toString() ?? '');
+                  final baseQty = ingredient['quantity'] ?? ingredient['qty'] ?? '';
+                  final unit = ingredient['unit']?.toString() ?? '';
+                  final qty = RecipeFormatter.formatQuantity(baseQty, widget.servings, unit);
                   
                   var imageUrl = ingredient['image_url']?.toString() ?? 
                                ingredient['imageUrl']?.toString() ?? 
@@ -476,6 +547,10 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                         break;
                       }
                     }
+                  }
+                  
+                   if (imageUrl.isEmpty) {
+                    imageUrl = _locallyGeneratedImages[name] ?? '';
                   }
                   
                   final icon = imageUrl.isNotEmpty ? imageUrl : name; 
@@ -613,7 +688,25 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                         ),
                       ),
                       child: TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () {
+                          if (widget.currentStep > 1) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CookingStepsScreen(
+                                  steps: widget.steps,
+                                  currentStep: widget.currentStep - 1,
+                                  allIngredients: widget.allIngredients,
+                                  recipeName: widget.recipeName,
+                                  servings: widget.servings,
+                                  initialGeneratedImages: _locallyGeneratedImages,
+                                ),
+                              ),
+                            );
+                          } else {
+                            Navigator.pop(context);
+                          }
+                        },
                         child: const Text(
                           "Back",
                           style: TextStyle(
@@ -644,6 +737,8 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                                   currentStep: widget.currentStep + 1,
                                   allIngredients: widget.allIngredients,
                                   recipeName: widget.recipeName,
+                                  servings: widget.servings,
+                                  initialGeneratedImages: _locallyGeneratedImages, // Pass accumulated images
                                 ),
                               ),
                             );

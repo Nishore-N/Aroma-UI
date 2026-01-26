@@ -7,6 +7,7 @@ import '../home/generate_recipe_screen.dart';
 import '../../../state/pantry_state.dart';
 import '../../../core/utils/category_engine.dart';
 import '../../../data/services/pantry_list_service.dart';
+import '../../../data/services/pantry_image_service.dart';
 import '../../../data/services/home_recipe_service.dart';
 import '../../../core/utils/item_image_resolver.dart';
 import '../../../ui/widgets/ingredient_row.dart';
@@ -66,21 +67,29 @@ class _SelectIngredientsScreenState extends State<SelectIngredientsScreen> {
       print("🔍 DEBUG: Got ${remotePantryItems.length} items from remote server");
       print("🔍 DEBUG: Remote items: ${remotePantryItems.map((e) => e['name']).toList()}");
       
+      final pantryState = Provider.of<PantryState>(context, listen: false);
+      
       // Convert remote pantry ingredients to _Ingredient objects with image URLs
-      final ingredients = remotePantryItems.map((item) => _Ingredient(
-        name: item['name']?.toString() ?? '',
-        category: CategoryEngine.getCategory(item['name']?.toString() ?? ''),
-        subtitle: CategoryEngine.getCategory(item['name']?.toString() ?? ''),
-        icon: _getIconForIngredient(item['name']?.toString() ?? ''),
-        imageUrl: item['imageUrl'] as String?, // Include imageUrl from remote
-      )).toList();
+      final ingredients = remotePantryItems.map((item) {
+        final name = item['name']?.toString() ?? '';
+        return _Ingredient(
+          name: name,
+          category: CategoryEngine.getCategory(name),
+          subtitle: CategoryEngine.getCategory(name),
+          icon: _getIconForIngredient(name),
+          imageUrl: pantryState.getItemImage(name) ?? item['imageUrl'] as String?, 
+        );
+      }).toList();
 
       setState(() {
         _allIngredients = ingredients;
         _isLoading = false;
       });
 
-      print("🔍 DEBUG: Loaded ${ingredients.length} pantry ingredients from REMOTE server for selection");
+      // Proactively trigger generation for any missing images
+      final names = ingredients.map((e) => e.name).toList();
+      PantryImageService().generateMissingImages(names);
+
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -389,10 +398,14 @@ class _SelectIngredientsScreenState extends State<SelectIngredientsScreen> {
                                       color: Colors.grey.shade100,
                                       borderRadius: BorderRadius.circular(16),
                                     ),
-                                    child: ItemImageResolver.getImageWidget(
-                                      item.name,
-                                      size: 50,
-                                      imageUrl: item.imageUrl, // Pass imageUrl to let resolver handle it
+                                    child: Consumer<PantryState>(
+                                      builder: (context, pantryState, child) {
+                                        return ItemImageResolver.getImageWidget(
+                                          item.name,
+                                          size: 50,
+                                          imageUrl: pantryState.getItemImage(item.name) ?? item.imageUrl,
+                                        );
+                                      },
                                     ),
                                   ),
 

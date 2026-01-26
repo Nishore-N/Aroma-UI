@@ -1,0 +1,4 @@
+enum ScanMode {
+  cooking,
+  pantry,
+}

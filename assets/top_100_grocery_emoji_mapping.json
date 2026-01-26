@@ -1,0 +1,258 @@
+{
+  "description": "Top 100 grocery & cooking raw materials with individual keyboard emojis",
+  "total_items": 85,
+  "items": [
+    { "id": 1, "name": "Tomato", "emoji": "🍅", "metrics": "1 kg" },
+    { "id": 2, "name": "Potato", "emoji": "🥔", "metrics": "1 kg" },
+    { "id": 3, "name": "Onion", "emoji": "🧅", "metrics": "1 kg" },
+    { "id": 4, "name": "Garlic", "emoji": "🧄", "metrics": "250 g" },
+    { "id": 5, "name": "Ginger", "emoji": "🫚", "metrics": "250 g" },
+    { "id": 6, "name": "Carrot", "emoji": "🥕", "metrics": "1 kg" },
+    { "id": 7, "name": "Cabbage", "emoji": "🥬", "metrics": "1 pc" },
+    { "id": 8, "name": "Cauliflower", "emoji": "🥦", "metrics": "1 pc" },
+    { "id": 9, "name": "Spinach", "emoji": "🥬", "metrics": "250 g" },
+    { "id": 10, "name": "Brinjal", "emoji": "🍆", "metrics": "1 kg" },
+    { "id": 11, "name": "Lady Finger", "emoji": "🥒", "metrics": "500 g" },
+    { "id": 12, "name": "Pumpkin", "emoji": "🎃", "metrics": "1 kg" },
+    { "id": 13, "name": "Radish", "emoji": "🥕", "metrics": "500 g" },
+    { "id": 14, "name": "Beetroot", "emoji": "🍠", "metrics": "500 g" },
+    { "id": 15, "name": "Green Peas", "emoji": "🫛", "metrics": "500 g" },
+    { "id": 16, "name": "Corn", "emoji": "🌽", "metrics": "2 pcs" },
+    { "id": 17, "name": "Broccoli", "emoji": "🥦", "metrics": "500 g" },
+
+    { "id": 18, "name": "Apple", "emoji": "🍎", "metrics": "1 kg" },
+    { "id": 19, "name": "Banana", "emoji": "🍌", "metrics": "1 dozen" },
+    { "id": 20, "name": "Orange", "emoji": "🍊", "metrics": "1 kg" },
+    { "id": 21, "name": "Mango", "emoji": "🥭", "metrics": "1 kg" },
+    { "id": 22, "name": "Grapes", "emoji": "🍇", "metrics": "500 g" },
+    { "id": 23, "name": "Papaya", "emoji": "🍈", "metrics": "1 pc" },
+    { "id": 24, "name": "Pineapple", "emoji": "🍍", "metrics": "1 pc" },
+    { "id": 25, "name": "Watermelon", "emoji": "🍉", "metrics": "1 pc" },
+    { "id": 26, "name": "Guava", "emoji": "🍐", "metrics": "1 kg" },
+    { "id": 27, "name": "Pomegranate", "emoji": "🍎", "metrics": "1 kg" },
+    { "id": 28, "name": "Strawberry", "emoji": "🍓", "metrics": "250 g" },
+    { "id": 29, "name": "Blueberry", "emoji": "🫐", "metrics": "125 g" },
+
+    { "id": 30, "name": "Rice", "emoji": "🍚", "metrics": "1 kg" },
+    { "id": 31, "name": "Wheat", "emoji": "🌾", "metrics": "1 kg" },
+    { "id": 32, "name": "Oats", "emoji": "🥣", "metrics": "500 g" },
+    { "id": 33, "name": "Millet", "emoji": "🌾", "metrics": "1 kg" },
+    { "id": 34, "name": "Moong Dal", "emoji": "🫘", "metrics": "1 kg" },
+    { "id": 35, "name": "Toor Dal", "emoji": "🫘", "metrics": "1 kg" },
+    { "id": 36, "name": "Urad Dal", "emoji": "🫘", "metrics": "1 kg" },
+    { "id": 37, "name": "Chickpeas", "emoji": "🫘", "metrics": "1 kg" },
+    { "id": 38, "name": "Kidney Beans", "emoji": "🫘", "metrics": "1 kg" },
+
+    { "id": 39, "name": "Salt", "emoji": "🧂", "metrics": "1 kg" },
+    { "id": 40, "name": "Turmeric", "emoji": "🟡", "metrics": "100 g" },
+    { "id": 41, "name": "Red Chilli", "emoji": "🌶️", "metrics": "250 g" },
+    { "id": 42, "name": "Coriander Seeds", "emoji": "🌿", "metrics": "250 g" },
+    { "id": 43, "name": "Cumin Seeds", "emoji": "🌿", "metrics": "250 g" },
+    { "id": 44, "name": "Mustard Seeds", "emoji": "🌿", "metrics": "250 g" },
+    { "id": 45, "name": "Curry Leaves", "emoji": "🌿", "metrics": "1 bunch" },
+
+    { "id": 46, "name": "Milk", "emoji": "🥛", "metrics": "1 L" },
+    { "id": 47, "name": "Butter", "emoji": "🧈", "metrics": "200 g" },
+    { "id": 48, "name": "Ghee", "emoji": "🧈", "metrics": "500 ml" },
+    { "id": 49, "name": "Paneer", "emoji": "🧀", "metrics": "200 g" },
+    { "id": 50, "name": "Cheese", "emoji": "🧀", "metrics": "200 g" },
+    { "id": 51, "name": "Curd", "emoji": "🥣", "metrics": "500 g" },
+
+    { "id": 52, "name": "Sunflower Oil", "emoji": "🛢️", "metrics": "1 L" },
+    { "id": 53, "name": "Olive Oil", "emoji": "🫒", "metrics": "500 ml" },
+    { "id": 54, "name": "Coconut Oil", "emoji": "🥥", "metrics": "500 ml" },
+
+    { "id": 55, "name": "Tea Leaves", "emoji": "🍃", "metrics": "250 g" },
+    { "id": 56, "name": "Coffee Beans", "emoji": "☕", "metrics": "250 g" },
+    { "id": 57, "name": "Sugar", "emoji": "🍚", "metrics": "1 kg" },
+    { "id": 58, "name": "Jaggery", "emoji": "🍯", "metrics": "500 g" },
+    { "id": 59, "name": "Bread", "emoji": "🍞", "metrics": "-" },
+
+    { "id": 60, "name": "Flour", "emoji": "🌾", "metrics": "1 kg" },
+    { "id": 61, "name": "Semolina", "emoji": "🌾", "metrics": "1 kg" },
+    { "id": 62, "name": "Flattened Rice", "emoji": "🍚", "metrics": "500 g" },
+    { "id": 63, "name": "Poha", "emoji": "🍚", "metrics": "500 g" },
+
+    { "id": 64, "name": "Soybean", "emoji": "🫘", "metrics": "1 kg" },
+    { "id": 65, "name": "Groundnuts", "emoji": "🥜", "metrics": "500 g" },
+    { "id": 66, "name": "Almonds", "emoji": "🌰", "metrics": "250 g" },
+    { "id": 67, "name": "Cashew Nuts", "emoji": "🌰", "metrics": "250 g" },
+    { "id": 68, "name": "Raisins", "emoji": "🍇", "metrics": "250 g" },
+    { "id": 69, "name": "Dates", "emoji": "🌴", "metrics": "500 g" },
+    { "id": 70, "name": "Coconut", "emoji": "🥥", "metrics": "1 pc" },
+
+    { "id": 71, "name": "Lemon", "emoji": "🍋", "metrics": "500 g" },
+    { "id": 72, "name": "Green Chilli", "emoji": "🌶️", "metrics": "250 g" },
+    { "id": 73, "name": "Capsicum", "emoji": "🫑", "metrics": "500 g" },
+    { "id": 74, "name": "Mushroom", "emoji": "🍄", "metrics": "200 g" },
+    { "id": 75, "name": "Zucchini", "emoji": "🥒", "metrics": "500 g" },
+    { "id": 76, "name": "Celery", "emoji": "🥬", "metrics": "1 bunch" },
+    { "id": 77, "name": "Lettuce", "emoji": "🥬", "metrics": "1 pc" },
+    { "id": 78, "name": "Spring Onion", "emoji": "🧅", "metrics": "1 bunch" },
+
+    { "id": 79, "name": "Bay Leaf", "emoji": "🍃", "metrics": "50 g" },
+    { "id": 80, "name": "Cloves", "emoji": "🌸", "metrics": "50 g" },
+    { "id": 81, "name": "Cardamom", "emoji": "🌸", "metrics": "50 g" },
+    { "id": 82, "name": "Cinnamon", "emoji": "🌿", "metrics": "50 g" },
+    { "id": 83, "name": "Black Pepper", "emoji": "🌑", "metrics": "100 g" },
+
+    { "id": 84, "name": "Yogurt", "emoji": "🍶", "metrics": "500 g" },
+    { "id": 85, "name": "Aubergine", "emoji": "🍆", "metrics": "1 kg" },
+    { "id": 86, "name": "Fenugreek Seeds", "emoji": "🌿", "metrics": "100 g" },
+    { "id": 87, "name": "Fennel Seeds", "emoji": "🌿", "metrics": "100 g" },
+    { "id": 88, "name": "Dry Red Chilli", "emoji": "🌶️", "metrics": "100 g" },
+    { "id": 89, "name": "Star Anise", "emoji": "⭐", "metrics": "50 g" },
+    { "id": 90, "name": "Nutmeg", "emoji": "🌰", "metrics": "25 g" },
+
+    { "id": 91, "name": "Basmati Rice", "emoji": "🍚", "metrics": "1 kg" },
+    { "id": 92, "name": "Brown Rice", "emoji": "🍚", "metrics": "1 kg" },
+    { "id": 93, "name": "Maida", "emoji": "🌾", "metrics": "1 kg" },
+    { "id": 94, "name": "Rava", "emoji": "🌾", "metrics": "1 kg" },
+    { "id": 95, "name": "Corn Flour", "emoji": "🌽", "metrics": "500 g" },
+
+    { "id": 96, "name": "Black Gram", "emoji": "🫘", "metrics": "1 kg" },
+    { "id": 97, "name": "Green Gram", "emoji": "🫘", "metrics": "1 kg" },
+    { "id": 98, "name": "Masoor Dal", "emoji": "🫘", "metrics": "1 kg" },
+    { "id": 99, "name": "Rajma", "emoji": "🫘", "metrics": "1 kg" },
+    { "id": 100, "name": "White Peas", "emoji": "🫛", "metrics": "1 kg" },
+
+    { "id": 101, "name": "Buttermilk", "emoji": "🥛", "metrics": "1 L" },
+    { "id": 102, "name": "Fresh Cream", "emoji": "🥛", "metrics": "200 ml" },
+    { "id": 103, "name": "Condensed Milk", "emoji": "🥛", "metrics": "400 g" },
+
+    { "id": 104, "name": "Sesame Oil", "emoji": "🛢️", "metrics": "1 L" },
+    { "id": 105, "name": "Mustard Oil", "emoji": "🛢️", "metrics": "1 L" },
+    { "id": 106, "name": "Rice Bran Oil", "emoji": "🛢️", "metrics": "1 L" },
+
+    { "id": 107, "name": "Dry Coconut", "emoji": "🥥", "metrics": "1 pc" },
+    { "id": 108, "name": "Tamarind", "emoji": "🌰", "metrics": "250 g" },
+    { "id": 109, "name": "Dry Ginger", "emoji": "🫚", "metrics": "100 g" },
+
+    { "id": 110, "name": "Mint Leaves", "emoji": "🌿", "metrics": "1 bunch" },
+    { "id": 111, "name": "Basil Leaves", "emoji": "🌿", "metrics": "1 bunch" },
+    { "id": 112, "name": "Parsley", "emoji": "🌿", "metrics": "1 bunch" },
+
+    { "id": 113, "name": "Raw Mango", "emoji": "🥭", "metrics": "1 kg" },
+    { "id": 114, "name": "Sweet Lime", "emoji": "🍊", "metrics": "1 kg" },
+    { "id": 115, "name": "Custard Apple", "emoji": "🍈", "metrics": "1 kg" },
+
+    { "id": 116, "name": "Ice Cubes", "emoji": "🧊", "metrics": "-" },
+    { "id": 117, "name": "Honey", "emoji": "🍯", "metrics": "250 g" },
+    { "id": 118, "name": "Vinegar", "emoji": "🍶", "metrics": "500 ml" },
+    { "id": 119, "name": "Soy Sauce", "emoji": "🍶", "metrics": "500 ml" },
+    { "id": 120, "name": "Baking Soda", "emoji": "🧂", "metrics": "100 g" },
+    { "id": 121, "name": "Soya Chunks", "emoji": "🫘", "metrics": "500 g" },
+    { "id": 122, "name": "Vermicelli", "emoji": "🍜", "metrics": "500 g" },
+    { "id": 123, "name": "Noodles", "emoji": "🍜", "metrics": "500 g" },
+    { "id": 124, "name": "Pasta", "emoji": "🍝", "metrics": "500 g" },
+    { "id": 125, "name": "Macaroni", "emoji": "🍝", "metrics": "500 g" },
+
+    { "id": 126, "name": "Green Gram Sprouts", "emoji": "🌱", "metrics": "250 g" },
+    { "id": 127, "name": "Mixed Sprouts", "emoji": "🌱", "metrics": "250 g" },
+    { "id": 128, "name": "Alfalfa Sprouts", "emoji": "🌱", "metrics": "250 g" },
+
+    { "id": 129, "name": "Bottle Gourd", "emoji": "🥒", "metrics": "1 pc" },
+    { "id": 130, "name": "Ridge Gourd", "emoji": "🥒", "metrics": "500 g" },
+    { "id": 131, "name": "Bitter Gourd", "emoji": "🥒", "metrics": "500 g" },
+    { "id": 132, "name": "Snake Gourd", "emoji": "🥒", "metrics": "500 g" },
+
+    { "id": 133, "name": "Drumstick", "emoji": "🌿", "metrics": "250 g" },
+    { "id": 134, "name": "Cluster Beans", "emoji": "🌿", "metrics": "500 g" },
+    { "id": 135, "name": "French Beans", "emoji": "🫛", "metrics": "500 g" },
+
+    { "id": 136, "name": "Sweet Potato", "emoji": "🍠", "metrics": "1 kg" },
+    { "id": 137, "name": "Yam", "emoji": "🍠", "metrics": "1 kg" },
+    { "id": 138, "name": "Taro Root", "emoji": "🍠", "metrics": "1 kg" },
+
+    { "id": 139, "name": "Jackfruit", "emoji": "🍈", "metrics": "1 pc" },
+    { "id": 140, "name": "Sapota", "emoji": "🍈", "metrics": "1 kg" },
+    { "id": 141, "name": "Fig", "emoji": "🍈", "metrics": "500 g" },
+
+    { "id": 142, "name": "Dry Fig", "emoji": "🍈", "metrics": "250 g" },
+    { "id": 143, "name": "Poppy Seeds", "emoji": "🌿", "metrics": "50 g" },
+    { "id": 144, "name": "Dry Coconut Powder", "emoji": "🥥", "metrics": "250 g" },
+
+    { "id": 145, "name": "Bread Crumbs", "emoji": "🍞", "metrics": "200 g" },
+    { "id": 146, "name": "Baking Powder", "emoji": "🧂", "metrics": "100 g" },
+    { "id": 147, "name": "Cornflakes", "emoji": "🥣", "metrics": "500 g" },
+
+    { "id": 148, "name": "Peanut Butter", "emoji": "🥜", "metrics": "340 g" },
+    { "id": 149, "name": "Jam", "emoji": "🍓", "metrics": "250 g" },
+    { "id": 150, "name": "Mayonnaise", "emoji": "🥣", "metrics": "250 g" },
+
+    { "id": 151, "name": "Chocolate Cookies", "emoji": "🍪", "metrics": "250 g" },
+    { "id": 152, "name": "Canned Tuna", "emoji": "🐟", "metrics": "200 g" },
+
+     { "id": 153, "name": "Dark Chocolate", "emoji": "🍫", "metrics": "100 g" },
+    { "id": 154, "name": "Milk Chocolate", "emoji": "🍫", "metrics": "100 g" },
+    { "id": 155, "name": "White Chocolate", "emoji": "🍫", "metrics": "100 g" },
+
+    { "id": 156, "name": "Canned Beans", "emoji": "🥫", "metrics": "400 g" },
+    { "id": 157, "name": "Canned Corn", "emoji": "🥫", "metrics": "400 g" },
+    { "id": 158, "name": "Canned Tomatoes", "emoji": "🥫", "metrics": "400 g" },
+
+    { "id": 159, "name": "Instant Noodles", "emoji": "🍜", "metrics": "70 g" },
+    { "id": 160, "name": "Instant Soup", "emoji": "🥣", "metrics": "1 pack" },
+
+    { "id": 161, "name": "Frozen Peas", "emoji": "🫛", "metrics": "500 g" },
+    { "id": 162, "name": "Frozen Corn", "emoji": "🌽", "metrics": "500 g" },
+
+    { "id": 163, "name": "Ice Cream", "emoji": "🍨", "metrics": "500 ml" },
+    { "id": 164, "name": "Milk Powder", "emoji": "🥛", "metrics": "500 g" },
+
+    { "id": 165, "name": "Custard Powder", "emoji": "🥣", "metrics": "200 g" },
+    { "id": 166, "name": "Cocoa Powder", "emoji": "🍫", "metrics": "200 g" },
+
+    { "id": 167, "name": "Vanilla Essence", "emoji": "🌼", "metrics": "20 ml" },
+    { "id": 168, "name": "Food Colour", "emoji": "🎨", "metrics": "10 ml" },
+
+    { "id": 169, "name": "Bread Rolls", "emoji": "🥖", "metrics": "6 pcs" },
+    { "id": 170, "name": "Burger Buns", "emoji": "🍔", "metrics": "4 pcs" },
+
+    { "id": 171, "name": "Frozen French Fries", "emoji": "🍟", "metrics": "500 g" },
+    { "id": 172, "name": "Pizza Base", "emoji": "🍕", "metrics": "2 pcs" },
+
+    { "id": 173, "name": "Tomato Ketchup", "emoji": "🍅", "metrics": "500 g" },
+    { "id": 174, "name": "Chilli Sauce", "emoji": "🌶️", "metrics": "200 g" },
+    { "id": 175, "name": "Soybean Sauce", "emoji": "🍶", "metrics": "200 ml" },
+
+    { "id": 176, "name": "Pickles", "emoji": "🥒", "metrics": "500 g" },
+    { "id": 177, "name": "Papad", "emoji": "🍘", "metrics": "200 g" },
+
+    { "id": 178, "name": "Instant Coffee", "emoji": "☕", "metrics": "200 g" },
+    { "id": 179, "name": "Green Tea Bags", "emoji": "🍵", "metrics": "25 bags" },
+
+    { "id": 180, "name": "Energy Drink", "emoji": "🥤", "metrics": "500 ml" },
+    { "id": 181, "name": "Fruit Juice", "emoji": "🧃", "metrics": "1 L" },
+
+    { "id": 182, "name": "Bottled Water", "emoji": "💧", "metrics": "1 L" },
+
+    { "id": 183, "name": "Chicken Eggs", "emoji": "🥚", "metrics": "12 pcs" },
+    { "id": 184, "name": "Quail Eggs", "emoji": "🥚", "metrics": "12 pcs" },
+
+    { "id": 185, "name": "Chicken Breast", "emoji": "🍗", "metrics": "500 g" },
+    { "id": 186, "name": "Fish Fillet", "emoji": "🐟", "metrics": "500 g" },
+
+    { "id": 187, "name": "Prawns", "emoji": "🦐", "metrics": "500 g" },
+    { "id": 188, "name": "Crab", "emoji": "🦀", "metrics": "1 kg" },
+
+    { "id": 189, "name": "Frozen Chicken Nuggets", "emoji": "🍗", "metrics": "500 g" },
+    { "id": 190, "name": "Sausages", "emoji": "🌭", "metrics": "500 g" },
+
+    { "id": 191, "name": "Tofu", "emoji": "🧈", "metrics": "200 g" },
+    { "id": 192, "name": "Tempeh", "emoji": "🫘", "metrics": "200 g" },
+
+    { "id": 193, "name": "Protein Powder", "emoji": "🥣", "metrics": "1 kg" },
+    { "id": 194, "name": "Health Drink Mix", "emoji": "🥛", "metrics": "500 g" },
+
+    { "id": 195, "name": "Instant Oats", "emoji": "🥣", "metrics": "500 g" },
+    { "id": 196, "name": "Muesli", "emoji": "🥣", "metrics": "500 g" },
+
+    { "id": 197, "name": "Trail Mix", "emoji": "🥜", "metrics": "250 g" },
+    { "id": 198, "name": "Popcorn Kernels", "emoji": "🍿", "metrics": "500 g" },
+
+    { "id": 199, "name": "Ready-to-Eat Meals", "emoji": "🍱", "metrics": "1 pack" },
+    { "id": 200, "name": "Frozen Paratha", "emoji": "🫓", "metrics": "5 pcs" }
+    
+  ]
+}

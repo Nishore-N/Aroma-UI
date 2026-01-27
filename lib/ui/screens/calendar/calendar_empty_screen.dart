@@ -9,6 +9,7 @@ import '../../../state/pantry_state.dart';
 import '../../widgets/primary_button.dart';
 import '../recipe_detail/recipe_detail_screen.dart';
 import '../home/generate_recipe_screen.dart';
+import '../preferences/cooking_preference_screen.dart';
 import '../auth/login_screen.dart';
 import '../profile/profile_screen.dart';
 import '../add_ingredients/ingredient_entry_screen.dart';
@@ -490,11 +491,6 @@ class _CalendarEmptyScreenState extends State<CalendarEmptyScreen>
     try {
       print('🔄 [Calendar] Starting recipe generation with pantry items...');
       
-      // Show loading animation first
-      setState(() {
-        _isLoading = true;
-      });
-      
       // Fetch actual pantry items from remote server
       final pantryItems = await _pantryListService.fetchPantryItems();
       
@@ -507,9 +503,6 @@ class _CalendarEmptyScreenState extends State<CalendarEmptyScreen>
       print('🥦 Found ${ingredients.length} remote pantry items: $ingredients');
       
       if (ingredients.isEmpty) {
-        setState(() {
-          _isLoading = false;
-        });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -522,51 +515,16 @@ class _CalendarEmptyScreenState extends State<CalendarEmptyScreen>
         return;
       }
       
-      // Generate recipes in background during animation
-      List<Map<String, dynamic>> generatedRecipes = [];
-      try {
-        // Create request data for weekly recipe generation
-        final requestData = {
-          "Cuisine_Preference": "Indian",
-          "Dietary_Restrictions": "Vegetarian",
-          "Cookware_Available": ["Microwave Oven"],
-          "Meal_Type": ["Breakfast", "Lunch", "Snacks", "Dinner"],
-          "Cooking_Time": "< 30 min",
-          "Serving": "1",
-          "Ingredients_Available": ingredients,
-        };
-        
-        print('📤 [Calendar] Sending request with ${ingredients.length} ingredients');
-        
-        // Generate recipes synchronously during animation
-        final dynamicResult = await _homeRecipeService.generateWeeklyRecipes(requestData);
-        generatedRecipes = List<Map<String, dynamic>>.from(dynamicResult);
-        print('✅ [Calendar] Generated ${generatedRecipes.length} recipes during animation');
-      } catch (e) {
-        print('❌ [Calendar] Recipe generation failed: $e');
-        // Still navigate even if generation fails, let GenerateRecipeScreen handle it
-      }
-      
-      // Wait for remaining animation time if generation completed quickly
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Reset loading state and navigate with pre-generated recipes
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => GenerateRecipeScreen(
-              usePantryIngredients: true,
-              pantryIngredients: ingredients,
-              preGeneratedRecipes: generatedRecipes,
-            ),
+      // Navigate directly to CookingPreferenceScreen without loading animation
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CookingPreferenceScreen(
+            ingredients: ingredients.map((name) => {"item": name, "quantity": "1"}).toList(),
+            isWeekly: true,
           ),
-        );
-      }
+        ),
+      );
       
     } catch (e) {
       print('❌ Error generating weekly recipes: $e');

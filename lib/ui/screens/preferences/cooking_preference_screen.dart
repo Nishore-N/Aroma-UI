@@ -1,16 +1,18 @@
-// lib/ui/screens/preferences/cooking_preference_screen.dart
 import 'package:flutter/material.dart';
 import '../recipes/recipe_list_screen.dart';
 import '../../widgets/recipe_generation_animation.dart';
 import '../../../data/services/home_recipe_service.dart';
 import '../../../data/services/preference_api_service.dart';
+import '../home/generate_recipe_screen.dart';
 
 class CookingPreferenceScreen extends StatefulWidget {
   final List<Map<String, dynamic>> ingredients;
+  final bool isWeekly;
 
   const CookingPreferenceScreen({
     super.key,
     required this.ingredients,
+    this.isWeekly = false,
   });
 
   @override
@@ -26,57 +28,7 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
   // ✅ LOCAL MUTABLE COPY (IMPORTANT FIX)
   late List<Map<String, dynamic>> _workingIngredients;
 
-  // ---------------------------
-  // NON-VEG IDENTIFICATION LIST
-  // ---------------------------
-  final List<String> _nonVegItems = [
-    "chicken",
-    "mutton",
-    "fish",
-    "egg",
-    "eggs",
-    "prawn",
-    "shrimp",
-    "beef",
-    "pork",
-    "lamb"
-  ];
 
-  bool _containsNonVeg(List<String> ingredients) {
-    return ingredients.any(
-      (item) =>
-          _nonVegItems.any((nv) => item.toLowerCase().contains(nv)),
-    );
-  }
-
-  // ---------------------------
-  // DIET–CONFLICT POPUP HANDLER
-  // ---------------------------
-  Future<int?> _showDietConflictDialog() {
-    return showDialog<int>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Diet Conflict Found ⚠️"),
-        content: const Text(
-          "Your selected diet is Vegetarian, but some ingredients appear to be Non-Vegetarian.\n\nChoose how you want to continue:",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, 1),
-            child: const Text("Remove Non-Veg"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 2),
-            child: const Text("Change Diet"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 0),
-            child: const Text("Cancel"),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ---------------------------
   // PREFERENCE OPTIONS
@@ -103,6 +55,7 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
 
   final Map<String, bool> _expanded = {};
   final Map<String, String> _selectedPerSection = {};
+  final Set<String> _selectedMealTypes = {}; // For weekly multi-select
 
   @override
   void initState() {
@@ -116,6 +69,17 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
       _expanded[k] = false;
       _selectedPerSection[k] = v.first;
     });
+
+    // Pre-select all meal types for weekly mode
+    if (widget.isWeekly) {
+      _selectedMealTypes.addAll(["Breakfast", "Lunch", "Dinner"]);
+      debugPrint('🍽️ [CookingPreference] Pre-selected meal types: $_selectedMealTypes');
+    }
+
+    if (widget.isWeekly) {
+      _selectedPerSection["Cooking Time"] = "5 - 10 minutes";
+      _selectedPerSection["Serving"] = "4";
+    }
   }
 
   // ---------------------------
@@ -229,7 +193,17 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
             spacing: 10,
             runSpacing: 10,
             children: visibleItems
-                .map((item) => _chip(title, item, item == selectedItem))
+                .map((item) {
+                  final bool isSelected = widget.isWeekly && title == "Meal Type" 
+                      ? _selectedMealTypes.contains(item)
+                      : item == selectedItem;
+                  
+                  if (widget.isWeekly && title == "Meal Type") {
+                    debugPrint('🍽️ [CookingPreference] Item: $item, Contains: ${_selectedMealTypes.contains(item)}, Selected: $isSelected');
+                  }
+                  
+                  return _chip(title, item, isSelected);
+                })
                 .toList(),
           ),
           if (items.length > 4)
@@ -251,7 +225,9 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
 
   Widget _chip(String section, String text, bool selected) {
     return GestureDetector(
-      onTap: () => setState(() => _selectedPerSection[section] = text),
+      onTap: widget.isWeekly && section == "Meal Type" 
+        ? null // Disable tap in weekly mode - all meal types are pre-selected
+        : () => setState(() => _selectedPerSection[section] = text),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(
@@ -338,25 +314,6 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
         List<String> ingredientNames =
             _workingIngredients.map((e) => e["item"].toString()).toList();
 
-        String selectedDiet =
-            _selectedPerSection["Dietary Restrictions"] ?? "";
-
-        if (selectedDiet == "Vegetarian" &&
-            _containsNonVeg(ingredientNames)) {
-          final choice = await _showDietConflictDialog();
-          if (choice == 0) return;
-          if (choice == 1) {
-            _workingIngredients.removeWhere((ing) =>
-                _nonVegItems.any((nv) =>
-                    ing["item"].toString().toLowerCase().contains(nv)));
-          } else if (choice == 2) {
-            setState(() {
-              _selectedPerSection["Dietary Restrictions"] =
-                  "Non- Vegetarian";
-            });
-          }
-        }
-
         // Show animation first
         setState(() {
           _isGenerating = true;
@@ -367,15 +324,42 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
             "Cuisine_Preference": _selectedPerSection["Cuisine Preference"],
             "Dietary_Restrictions": _selectedPerSection["Dietary Restrictions"],
             "Cookware_Available": [_selectedPerSection["Cookware & Utensils"]],
-            "Meal_Type": [_selectedPerSection["Meal Type"]],
+            "Meal_Type": widget.isWeekly ? ["Breakfast", "Lunch", "Dinner"] : [_selectedPerSection["Meal Type"]],
             "Cooking_Time": _selectedPerSection["Cooking Time"],
-            "Serving": servingCount,
-            "Ingredients_Available": _workingIngredients,
+            "Serving": servingCount.toString(),
+            "Ingredients_Available": ingredientNames,
           };
 
-          debugPrint("🧪 [UI] Preparing to generate recipes with preferences: $pref");
-          
-          // Generate recipes during animation
+          if (widget.isWeekly) {
+            // Call weekly generation API
+            final weeklyData = await _homeRecipeService.generateWeeklyRecipes(pref);
+            
+            if (mounted) {
+              setState(() {
+                _isGenerating = false;
+              });
+              
+              if (weeklyData.isNotEmpty) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => GenerateRecipeScreen(
+                      preGeneratedRecipes: List<Map<String, dynamic>>.from(weeklyData),
+                      usePantryIngredients: true,
+                      pantryIngredients: ingredientNames,
+                    ),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('No recipes generated for weekly plan')),
+                );
+              }
+            }
+            return;
+          }
+
+          // Generate recipes during animation (Single recipe generation)
           final recipesData = await PreferenceApiService.generateRecipes(_workingIngredients, pref);
           debugPrint("🧪 [UI] API Response received in UI: $recipesData");
           

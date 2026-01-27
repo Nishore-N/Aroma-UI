@@ -13,7 +13,8 @@ class ApiEndpoints {
   static String get detectQty => dotenv.env['DETECT_QTY_URL']!;
   static String get generateRecipesIngredient => dotenv.env['GENERATE_RECIPES_INGREDIENT_URL']!;
   static String get recipeGeneration => dotenv.env['RECIPE_GENERATION_URL']!;
-  static String get recipesWeekly => dotenv.env['RECIPES_WEEKLY_URL']!;
+  static String get recipesWeekly => dotenv.env['WEEKLY_RECIPES_URL']!;
+  static String get recipesImage => dotenv.env['GENERATE_IMAGE_URL']!;
   static String get registerUser => dotenv.env['REGISTER_USER_URL']!;
   static String get loginUser => dotenv.env['LOGIN_USER_URL']!;
   static String get loginUserOtp => dotenv.env['LOGIN_USER_OTP_URL']!;

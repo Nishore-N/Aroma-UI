@@ -328,6 +328,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   void _checkAndGenerateImages() {
+    // Generate images sequentially (one by one) instead of all at once
+    _generateImagesSequentially();
+  }
+
+  Future<void> _generateImagesSequentially() async {
     for (var item in _ingredientData) {
       final name = item['item']?.toString() ?? '';
       final imageUrl = item['image_url']?.toString() ?? 
@@ -335,9 +340,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                      item['image']?.toString() ?? '';
 
       if (name.isNotEmpty && imageUrl.isEmpty && !_locallyGeneratedImages.containsKey(name) && !_pendingGenerations.contains(name)) {
-        _generateImageForIngredient(name);
+        // Wait for each image to complete before starting the next one
+        await _generateImageForIngredient(name);
+        debugPrint('✅ [RecipeDetailScreen] Completed image generation for: $name');
       }
     }
+    debugPrint('🎉 [RecipeDetailScreen] All ingredient images generated sequentially');
   }
 
   Future<void> _generateImageForIngredient(String name) async {

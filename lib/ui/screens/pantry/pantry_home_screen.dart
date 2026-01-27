@@ -92,15 +92,24 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
     final missing = itemNames.where((name) => !currentCache.containsKey(name)).toList();
     
     if (missing.isNotEmpty) {
-      debugPrint('🎨 [PantryHome] Found ${missing.length} items missing images. Starting generation...');
+      debugPrint('🎨 [PantryHome] Found ${missing.length} items missing images. Starting sequential generation...');
       
-      // We can do this in the background
+      // Generate images one by one sequentially
+      int count = 0;
       for (final name in missing) {
+        count++;
+        debugPrint('🖼️ [PantryHome] Generating image $count/${missing.length} for: $name');
+        
         final url = await _imageService.generateItemImage(name);
         if (url != null) {
           await pantryState.updateItemImage(name, url);
+          debugPrint('✅ [PantryHome] Completed image generation for: $name ($count/${missing.length})');
+        } else {
+          debugPrint('⚠️ [PantryHome] Failed to generate image for: $name');
         }
       }
+      
+      debugPrint('🎉 [PantryHome] All ${missing.length} ingredient images generated sequentially');
     }
   }
 

@@ -481,37 +481,13 @@ class _SelectIngredientsScreenState extends State<SelectIngredientsScreen> {
                 final selectedList = _selectedIngredients.toList();
                 print("🔍 DEBUG: Selected ingredients for recipe generation: $selectedList");
                 
-                // Generate recipes in background during animation
-                List<Map<String, dynamic>> generatedRecipes = [];
-                try {
-                  // Create request data for weekly recipe generation
-                  final requestData = {
-                    "Cuisine_Preference": "Indian",
-                    "Dietary_Restrictions": "Vegetarian",
-                    "Cookware_Available": ["Microwave Oven"],
-                    "Meal_Type": ["Breakfast", "Lunch", "Snacks", "Dinner"],
-                    "Cooking_Time": "< 30 min",
-                    "Serving": "1",
-                    "Ingredients_Available": selectedList,
-                  };
-                  
-                  print('📤 [SelectIngredients] Sending request with ${selectedList.length} ingredients');
-                  
-                  // Import HomeRecipeService to generate recipes
-                  final homeRecipeService = HomeRecipeService();
-                  final dynamicResult = await homeRecipeService.generateWeeklyRecipes(requestData);
-                  generatedRecipes = List<Map<String, dynamic>>.from(dynamicResult);
-                  print('✅ [SelectIngredients] Generated ${generatedRecipes.length} recipes during animation');
-                } catch (e) {
-                  print('❌ [SelectIngredients] Recipe generation failed: $e');
-                  // Still navigate even if generation fails, let GenerateRecipeScreen handle it
-                }
+                await Future.delayed(const Duration(milliseconds: 500));
                 
                 // Wait for remaining animation time if generation completed quickly
                 await Future.delayed(const Duration(milliseconds: 500));
                 
                 if (mounted) {
-                  // Reset generating state and navigate with pre-generated recipes
+                  // Reset generating state and navigate to CookingPreferenceScreen
                   setState(() {
                     _isGenerating = false;
                   });
@@ -519,10 +495,9 @@ class _SelectIngredientsScreenState extends State<SelectIngredientsScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => GenerateRecipeScreen(
-                        usePantryIngredients: true,
-                        pantryIngredients: selectedList,
-                        preGeneratedRecipes: generatedRecipes,
+                      builder: (context) => CookingPreferenceScreen(
+                        ingredients: selectedList.map((name) => {"item": name, "quantity": "1"}).toList(),
+                        isWeekly: true,
                       ),
                     ),
                   );

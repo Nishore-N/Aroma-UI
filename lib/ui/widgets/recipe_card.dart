@@ -312,31 +312,24 @@ class RecipeCard extends StatelessWidget {
 
   // Navigate to recipe detail screen
   void _navigateToRecipeDetail(BuildContext context, RecipeModel recipe) {
-    // Use the full backend data if available, otherwise create basic structure
-    final fullRecipeData = recipe.fullRecipeData ?? {
-      'description': recipe.description ?? '',
-      'nutrition': {
-        'calories': recipe.calories,
-        'protein': 0,
-        'carbs': 0,
-        'fats': 0,
-      },
-      'cooking_steps': recipe.instructions.map((instruction) => {
-        'instruction': instruction,
-        'ingredients': [],
-        'tips': [],
-      }).toList(),
-      'tags': {
-        'cookware': [],
-      },
-      'ingredients': recipe.ingredients.map((ingredient) => {
-        'item': ingredient,
-        'quantity': '1',
-      }).toList(),
-    };
+    debugPrint('🏠 [RecipeCard] "Cook now" clicked for recipe: ${recipe.title}');
+    
+    // Stop any ongoing background image generation to prioritize this navigation
+    try {
+      context.read<HomeProvider>().stopImageGeneration();
+    } catch (e) {
+      debugPrint('⚠️ [RecipeCard] Could not stop image generation: $e');
+    }
+
+    debugPrint('🏠 [RecipeCard] Recipe ID: ${recipe.id}');
+    
+    // Pass the existing fullRecipeData directly. If it's null, RecipeDetailScreen will fetch it.
+    final fullRecipeData = recipe.fullRecipeData;
+
+    debugPrint('🏠 [RecipeCard] Full recipe data keys: ${fullRecipeData?.keys.join(', ') ?? "NULL"}');
 
     // Convert string ingredients to Map format for RecipeDetailScreen
-    final rawIngredients = fullRecipeData['ingredients'] as List<dynamic>?;
+    final rawIngredients = fullRecipeData?['ingredients'] as List<dynamic>?;
     final List<Map<String, dynamic>> ingredientMaps = [];
 
     if (rawIngredients != null) {
@@ -359,10 +352,13 @@ class RecipeCard extends StatelessWidget {
         }));
     }
 
+    debugPrint('🏠 [RecipeCard] Navigating to RecipeDetailScreen with ${ingredientMaps.length} ingredients');
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => RecipeDetailScreen(
+          recipeId: recipe.id,
           image: recipe.image,
           title: recipe.title,
           ingredients: ingredientMaps,

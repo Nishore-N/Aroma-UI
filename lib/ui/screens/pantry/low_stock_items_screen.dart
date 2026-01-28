@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../state/pantry_state.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../data/services/shopping_list_service.dart';
 import '../../../data/services/ingredient_metrics_service.dart';
 import '../../../data/services/pantry_list_service.dart';
@@ -38,7 +39,10 @@ class _LowStockItemsScreenState extends State<LowStockItemsScreen> {
     });
     
     try {
-      final pantryItems = await _pantryListService.fetchPantryItems();
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final String? userId = authService.user?.mobile_no;
+      
+      final pantryItems = await _pantryListService.fetchPantryItems(userId: userId);
       setState(() {
         _remotePantryItems = pantryItems;
         _isLoading = false;

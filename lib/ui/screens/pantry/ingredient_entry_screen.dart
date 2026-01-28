@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'pantry_review_ingredients_screen.dart';
 import '../../data/services/pantry_add_service.dart';
+import '../../core/services/auth_service.dart';
+import 'package:provider/provider.dart';
 
 class IngredientEntryScreen extends StatefulWidget {
   final Function? onItemsAdded;
@@ -131,9 +133,23 @@ class _IngredientEntryScreenState extends State<IngredientEntryScreen> {
         ),
       );
 
-      if (addedItems != null && addedItems.isNotEmpty) {
-        // Save to pantry
-        final success = await _pantryService.saveToPantry(addedItems);
+      if (addedItems == true) {
+        // Items were already saved in the review screen
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text('Items added to pantry'), backgroundColor: Colors.green),
+           );
+           widget.onItemsAdded?.call();
+           Navigator.pop(context, true);
+        }
+        return;
+      }
+
+      if (addedItems != null && addedItems is List && addedItems.isNotEmpty) {
+        // Save to pantry (Legacy/Fallback flow)
+        final authService = Provider.of<AuthService>(context, listen: false);
+        final String? userId = authService.user?.mobile_no;
+        final success = await _pantryService.saveToPantry(addedItems, userId: userId);
         
         if (mounted) {
           if (success) {

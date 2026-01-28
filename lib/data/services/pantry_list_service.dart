@@ -8,10 +8,10 @@ class PantryListService {
   final PantryCrudService _crudService = PantryCrudService();
 
   /// Fetch all pantry items from remote server
-  Future<List<Map<String, dynamic>>> fetchPantryItems() async {
+  Future<List<Map<String, dynamic>>> fetchPantryItems({String? userId}) async {
     try {
       // Use the new CRUD service
-      final items = await _crudService.getPantryItems();
+      final items = await _crudService.getPantryItems(userId: userId);
       debugPrint("✅ [PantryList] Retrieved ${items.length} items from remote server");
       return items;
     } catch (e) {
@@ -22,11 +22,11 @@ class PantryListService {
   }
 
   /// Clear all pantry items from remote server
-  Future<bool> clearAllPantryItems() async {
+  Future<bool> clearAllPantryItems({String? userId}) async {
     try {
-      debugPrint("🗑️ [PantryList] Clearing all pantry items from remote server...");
+      debugPrint("🗑️ [PantryList] Clearing all pantry items from remote server for user: $userId...");
       
-      final success = await _crudService.clearAllPantryItems();
+      final success = await _crudService.clearAllPantryItems(userId: userId);
       
       if (success) {
         debugPrint("✅ [PantryList] Successfully cleared all pantry items");
@@ -37,6 +37,18 @@ class PantryListService {
       }
     } catch (e) {
       debugPrint("❌ [PantryList] Exception while clearing pantry: $e");
+      return false;
+    }
+  }
+
+  /// Remove specific pantry items
+  Future<bool> removePantryItems(List<Map<String, dynamic>> items, {String? userId}) async {
+    try {
+      debugPrint("🗑️ [PantryList] Removing ${items.length} items for user: $userId...");
+      await _crudService.removePantryItems(items, userId: userId);
+      return true;
+    } catch (e) {
+      debugPrint("❌ [PantryList] Failed to remove items: $e");
       return false;
     }
   }

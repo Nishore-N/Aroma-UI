@@ -15,7 +15,7 @@ class RecipeDetailService {
   );
   
   // Fetch recipe details from backend using recipeId
-  static Future<Map<String, dynamic>> fetchRecipeDetails(String recipeId) async {
+  static Future<Map<String, dynamic>?> fetchRecipeDetails(String recipeId) async {
     try {
       // Use generate-recipes-ingredient API for recipe details with recipeId
       debugPrint('🚀 [RecipeDetailService] Fetching details for recipeId: $recipeId');
@@ -32,41 +32,39 @@ class RecipeDetailService {
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         final rawData = response.data;
-        debugPrint('📄 [RecipeDetailService] Raw Response Data: $rawData');
         if (rawData is Map<String, dynamic> && rawData['ok'] == true) {
-          final data = rawData['data'] as Map<String, dynamic>;
-          debugPrint('🍱 [RecipeDetailService] Backend Data Keys: ${data.keys.join(', ')}');
-          // Cache removed as per user request to call every time
-          return data;
+          final dynamic dataField = rawData['data'];
+          
+          if (dataField is Map<String, dynamic>) {
+            debugPrint('🍱 [RecipeDetailService] Data is Map, Keys: ${dataField.keys.join(', ')}');
+            return dataField;
+          } else if (dataField is List) {
+             debugPrint('🍱 [RecipeDetailService] Data is List of length ${dataField.length}');
+            // Try to find the specific recipe by ID
+            final found = dataField.firstWhere(
+              (item) => (item['_id']?.toString() == recipeId || item['id']?.toString() == recipeId),
+              orElse: () => null,
+            );
+            
+            if (found != null) {
+              debugPrint('✅ [RecipeDetailService] Found matching recipe in list');
+              return Map<String, dynamic>.from(found);
+            } else if (dataField.isNotEmpty) {
+              debugPrint('⚠️ [RecipeDetailService] Recipe ID not found in list, returning first item as fallback');
+              return Map<String, dynamic>.from(dataField.first);
+            }
+          }
         } else {
-          debugPrint('⚠️ [RecipeDetailService] Response "ok" is not true or data is malformed');
+          debugPrint('⚠️ [RecipeDetailService] Response "ok" is not true or data is malformed: $rawData');
         }
       }
       
-      // Return empty structure if API fails
-      return {
-        '_id': recipeId,
-        'recipe_name': 'Unknown Recipe',
-        'description': 'A delicious recipe prepared with fresh ingredients.',
-        'ingredients': [],
-        'cooking_steps': [],
-        'preparation_steps': [],
-        'preferenceTag': '',
-        'cooking_time': '30 minutes',
-      };
+      // Return null if API fails explicitly
+      return null;
     } catch (e) {
       debugPrint('Error fetching recipe details: $e');
-      // Return empty structure on error
-      return {
-        '_id': recipeId,
-        'recipe_name': 'Unknown Recipe',
-        'description': 'A delicious recipe prepared with fresh ingredients.',
-        'ingredients': [],
-        'cooking_steps': [],
-        'preparation_steps': [],
-        'preferenceTag': '',
-        'cooking_time': '30 minutes',
-      };
+      // Return null on exception to avoid overwriting with bad data
+      return null;
     }
   }
 

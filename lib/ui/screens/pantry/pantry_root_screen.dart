@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/services/pantry_list_service.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../state/pantry_state.dart';
 import 'pantry_empty_screen.dart';
 import 'pantry_home_screen.dart';
@@ -26,8 +27,11 @@ class _PantryRootScreenState extends State<PantryRootScreen> {
 
   Future<void> _checkPantry() async {
     try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final String? userId = authService.user?.mobile_no;
+      
       // First try to get remote pantry items
-      final remoteItems = await _service.fetchPantryItems();
+      final remoteItems = await _service.fetchPantryItems(userId: userId);
       isEmpty = remoteItems.isEmpty;
       
       // If remote is empty, check local pantry state as fallback
@@ -67,8 +71,12 @@ class _PantryRootScreenState extends State<PantryRootScreen> {
       );
     }
 
-    return isEmpty
-        ? const PantryEmptyScreen()
-        : const PantryHomeScreen();
+    return Consumer<PantryState>(
+      builder: (context, pantryState, child) {
+        return pantryState.items.isEmpty
+            ? const PantryEmptyScreen()
+            : const PantryHomeScreen();
+      },
+    );
   }
 }

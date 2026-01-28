@@ -149,6 +149,27 @@ class PantryState extends ChangeNotifier {
     debugPrint("✅ Local pantry state and image cache cleared");
   }
 
+  // REMOVE MULTIPLE ITEMS
+  Future<void> removeItems(List<String> itemNames) async {
+    if (itemNames.isEmpty) return;
+    
+    debugPrint("🗑️ Removing ${itemNames.length} items from local state");
+    
+    // Normalize names for comparison
+    final normalizedNamesToRemove = itemNames.map(_normalizeName).toSet();
+    
+    // Remove from items list
+    _items.removeWhere((item) => normalizedNamesToRemove.contains(_normalizeName(item.name)));
+    
+    // Remove from image cache
+    for (final name in normalizedNamesToRemove) {
+      _itemImages.remove(name);
+    }
+    
+    await _savePantry();
+    notifyListeners();
+  }
+
   // SAVE TO LOCAL STORAGE
   Future<void> _savePantry() async {
     final prefs = await SharedPreferences.getInstance();

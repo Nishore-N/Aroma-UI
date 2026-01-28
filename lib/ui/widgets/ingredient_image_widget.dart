@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class IngredientThumbnail extends StatelessWidget {
   final String ingredientName;
@@ -24,12 +25,22 @@ class IngredientThumbnail extends StatelessWidget {
       child: imageUrl != null && imageUrl!.isNotEmpty
           ? ClipRRect(
               borderRadius: BorderRadius.circular(size * 0.2),
-              child: Image.network(
-                imageUrl!,
-                width: size,
-                height: size,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _buildFallback(),
+              child: Builder(
+                builder: (context) {
+                  String finalUrl = imageUrl!;
+                  if (finalUrl.startsWith('http://') && finalUrl.contains('s3')) {
+                    finalUrl = finalUrl.replaceFirst('http://', 'https://');
+                  }
+                  
+                  return CachedNetworkImage(
+                    imageUrl: finalUrl,
+                    width: size,
+                    height: size,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(color: Colors.grey[200]),
+                    errorWidget: (context, url, error) => _buildFallback(),
+                  );
+                }
               ),
             )
           : _buildFallback(),

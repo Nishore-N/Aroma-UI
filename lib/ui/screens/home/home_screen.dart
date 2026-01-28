@@ -422,64 +422,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _navigateToRecipeDetail(RecipeModel recipe) {
-    // Use the full backend data if available, otherwise create basic structure
-    final fullRecipeData = recipe.fullRecipeData ?? {
-      'description': recipe.description ?? '',
-      'nutrition': {
-        'calories': recipe.calories,
-        'protein': 0,
-        'carbs': 0,
-        'fats': 0,
-      },
-      'cooking_steps': recipe.instructions.map((instruction) => {
-        'instruction': instruction,
-        'ingredients': [],
-        'tips': [],
-      }).toList(),
-      'tags': {
-        'cookware': [],
-      },
-      'ingredients': recipe.ingredients.map((ingredient) => {
-        'item': ingredient,
-        'quantity': '1',
-      }).toList(),
-    };
-
-    // Convert string ingredients to Map format for RecipeDetailScreen
-    final rawIngredients = fullRecipeData['ingredients'] as List<dynamic>?;
-    final List<Map<String, dynamic>> ingredientMaps = [];
-
-    if (rawIngredients != null) {
-      for (var ing in rawIngredients) {
-        if (ing is Map<String, dynamic>) {
-          ingredientMaps.add(ing);
-        } else if (ing is String) {
-          ingredientMaps.add({
-            'item': ing,
-            'quantity': '1',
-          });
-        }
-      }
-    }
-
-    if (ingredientMaps.isEmpty && recipe.ingredients.isNotEmpty) {
-       ingredientMaps.addAll(recipe.ingredients.map((ingredient) => {
-          'item': ingredient,
-          'quantity': '1',
-        }));
-    }
-
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => RecipeDetailScreen(
+          recipeId: recipe.id,
           image: recipe.image,
           title: recipe.title,
-          ingredients: ingredientMaps,
+          ingredients: const [], // Will be fetched via recipeId
           cuisine: recipe.cuisine,
           cookTime: recipe.cookTime,
           servings: recipe.servings,
-          fullRecipeData: fullRecipeData,
         ),
       ),
     );

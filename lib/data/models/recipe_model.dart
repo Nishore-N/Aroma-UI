@@ -35,13 +35,14 @@ class RecipeModel {
       title: json['title'] ?? json['recipe_name'] ?? 'Untitled Recipe',
       cuisine: json['cuisine'] ?? 'Unknown Cuisine',
       cookTime: json['cookTime']?.toString() ?? json['total_time']?.toString() ?? json['cooking_time']?.toString() ?? json['time']?.toString() ?? 'N/A',
-      image: json['image'] ?? json['recipe_image_url'] ?? '', // Handle both field names
+      image: json['image'] ?? json['recipe_image_url'] ?? '',
       isSaved: json['isSaved'] ?? false,
       description: json['description'],
       servings: (json['servings'] as num?)?.toInt() ?? 1,
       calories: (json['calories'] as num?)?.toInt() ?? 0,
       ingredients: List<String>.from(json['ingredients'] ?? []),
       instructions: List<String>.from(json['instructions'] ?? []),
+      fullRecipeData: json['fullRecipeData'],
     );
   }
 
@@ -57,6 +58,7 @@ class RecipeModel {
     int? calories,
     List<String>? ingredients,
     List<String>? instructions,
+    Map<String, dynamic>? fullRecipeData,
   }) {
     return RecipeModel(
       id: id ?? this.id,
@@ -70,6 +72,7 @@ class RecipeModel {
       calories: calories ?? this.calories,
       ingredients: ingredients ?? this.ingredients,
       instructions: instructions ?? this.instructions,
+      fullRecipeData: fullRecipeData ?? this.fullRecipeData,
     );
   }
 

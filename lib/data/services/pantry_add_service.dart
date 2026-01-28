@@ -75,40 +75,56 @@ class PantryAddService {
   }
 
   // 🔹 USE CASE 4: Add individual pantry items (for scanned items)
-  Future<Map<String, dynamic>> addIndividualPantryItems(List<Map<String, dynamic>> items) async {
+  Future<Map<String, dynamic>> addIndividualPantryItems(List<Map<String, dynamic>> items, {String? userId}) async {
     try {
       debugPrint("📤 Adding ${items.length} individual pantry items...");
       
       // Convert items to the format expected by the API
       final ingredientsWithQuantity = items.map((item) => {
-        "item": item['name']?.toString() ?? '',
-        "price": item['price']?.toDouble() ?? 0.0,
-        "quantity": item['quantity']?.toInt() ?? 1,
+        "name": item['name']?.toString() ?? item['item']?.toString() ?? '',
+        "item": item['name']?.toString() ?? item['item']?.toString() ?? '', // Added back for compatibility
+        "price": (item['price'] as num?)?.toDouble() ?? 0.0,
+        "quantity": (item['quantity'] as num?)?.toInt() ?? 1,
+        "source": "receipt_scan",
+        "unit": item['unit']?.toString() ?? 'pcs',
       }).toList();
       
       // Create the request body in the correct format
       final requestBody = {
+        "userId": userId, // Added here as server reports it missing
         "ingredients_with_quantity": ingredientsWithQuantity,
         "message": "Food items extracted successfully",
+        "status": true,
         "raw_text": jsonEncode({
+          "userId": userId,
           "ingredients_with_quantity": ingredientsWithQuantity,
           "message": "Extracted food items from scan",
           "status": true,
         }),
-        "status": true,
       };
       
       debugPrint("📦 Request body: $requestBody");
       
+      // Construct URL with userId if provided
+      String url = _addPantryUrl;
+      if (userId != null && userId.isNotEmpty) {
+        url = "$url?userId=$userId";
+      }
+      debugPrint("🔗 Calling URL: $url");
+      
       final addPantryDio = Dio();
       final response = await addPantryDio.post(
-        _addPantryUrl,
+        url,
         data: requestBody,
       );
       
       debugPrint("✅ Individual pantry items added: ${response.data}");
       return response.data;
     } catch (e) {
+      if (e is DioException) {
+        debugPrint("❌ Server Error Response: ${e.response?.data}");
+        debugPrint("❌ Server Error Status: ${e.response?.statusCode}");
+      }
       debugPrint("❌ Error adding individual pantry items: $e");
       rethrow;
     }
@@ -118,9 +134,10 @@ class PantryAddService {
   Future<bool> saveToPantry(
     List<Map<String, dynamic>> items, {
     bool isUpdate = false,
+    String? userId,
   }) async {
     try {
-      final result = await addIndividualPantryItems(items);
+      final result = await addIndividualPantryItems(items, userId: userId);
       return result['status'] == true;
     } catch (e) {
       debugPrint("❌ Error in saveToPantry: $e");

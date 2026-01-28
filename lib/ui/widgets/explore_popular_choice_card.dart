@@ -29,12 +29,12 @@ class ExplorePopularChoiceCard extends StatelessWidget {
           context,
           MaterialPageRoute(
             builder: (context) => RecipeDetailScreen(
+              recipeId: recipe.id,
               image: recipe.image,
               title: recipe.title,
               ingredients: recipe.ingredients.map((ingredient) => {
-                'name': ingredient,
+                'item': ingredient,
                 'quantity': '1',
-                'unit': 'unit'
               }).toList(),
               cuisine: recipe.cuisine,
               cookTime: recipe.cookTime,

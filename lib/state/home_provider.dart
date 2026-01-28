@@ -43,34 +43,47 @@ class HomeProvider extends ChangeNotifier {
     final Map<String, dynamic> imageObj =
         Map<String, dynamic>.from(item["Image"] ?? {});
 
-    // Parse cooking time - try multiple possible field names and formats
-    String rawTime = "0";
-    final possibleTimeFields = [
-      "Cooking Time", "cooking_time", "total_time", "totalTime", 
-      "cook_time", "prep_time", "preparation_time", "time"
-    ];
+    // Parse cooking time - try summing prep and cook time first
+    int totalMinutes = 0;
+    bool timeInfoFound = false;
+
+    // Direct check for the common separate fields
+    final cookTimeVal = item["cook_time"] ?? item["cooking_time"] ?? item["Cooking Time"];
+    final prepTimeVal = item["prep_time"] ?? item["preparation_time"] ?? item["Preparation Time"];
+
+    if (cookTimeVal != null || prepTimeVal != null) {
+        final ct = int.tryParse(cookTimeVal.toString()) ?? 0;
+        final pt = int.tryParse(prepTimeVal.toString()) ?? 0;
+        totalMinutes = ct + pt;
+        if (totalMinutes > 0) timeInfoFound = true;
+    }
+
+    String rawTime = totalMinutes.toString();
     
-    for (final field in possibleTimeFields) {
-      if (item[field] != null && item[field].toString().isNotEmpty) {
-        rawTime = item[field].toString();
-        debugPrint(' Found time in field "$field": $rawTime');
-        break;
-      }
+    if (!timeInfoFound) {
+        final possibleTimeFields = [
+          "total_time", "totalTime", "time", "Cooking Time", "cooking_time", "cook_time"
+        ];
+        
+        for (final field in possibleTimeFields) {
+          if (item[field] != null && item[field].toString().isNotEmpty && item[field].toString() != "0") {
+            rawTime = item[field].toString();
+            timeInfoFound = true;
+            break;
+          }
+        }
     }
     
     // Extract numeric value from various formats like "15 min", "15-20 min", "15-30", etc.
     String cookTimeStr = rawTime;
-    
-    // Try to extract the first number found
     final numberMatch = RegExp(r'\d+').firstMatch(rawTime);
     if (numberMatch != null) {
       cookTimeStr = numberMatch.group(0) ?? "0";
     } else {
-      // If no numbers found, try to parse directly
       cookTimeStr = rawTime.replaceAll(RegExp(r'[^0-9]'), '');
     }
     
-    final cookTime = int.tryParse(cookTimeStr) ?? 0;
+    final cookTime = int.tryParse(cookTimeStr) ?? totalMinutes;
     debugPrint(' Parsed cookTime: $cookTime from raw: "$rawTime"');
 
     // Extract ingredients list from backend data
@@ -84,8 +97,16 @@ class HomeProvider extends ChangeNotifier {
       // Handle both list of maps and list of strings
       final List<dynamic> rawIngredients = item["ingredients"] as List<dynamic>;
       ingredientStrings = rawIngredients.map((ing) {
-        if (ing is Map && ing.containsKey('item')) {
-          return ing['item']?.toString() ?? ing.toString();
+        if (ing is Map) {
+          // Try to extract a clean name
+          final name = ing['item'] ?? ing['name'] ?? ing['ingredient'] ?? ing.toString();
+          final qty = ing['qty'] ?? ing['quantity'] ?? ing['amount'] ?? '';
+          final unit = ing['unit']?.toString() ?? '';
+          
+          if (qty.toString().isNotEmpty || unit.isNotEmpty) {
+            return "$name ($qty $unit)".trim().replaceAll(RegExp(r'\s+'), ' ');
+          }
+          return name.toString();
         } else {
           return ing.toString();
         }
@@ -129,17 +150,26 @@ class HomeProvider extends ChangeNotifier {
     } else if (imageObj["name"] != null) {
       recipeTitle = imageObj["name"].toString();
       debugPrint(' Found title in "Image.name" field: $recipeTitle');
-    } else {
-      debugPrint(' No title field found, using "Unknown Dish"');
     }
 
     // Use provided ID or generate from title
-    final String id = item["id"]?.toString() ?? recipeTitle.replaceAll(' ', '_');
+    final String id = item["_id"]?.toString() ?? item["id"]?.toString() ?? recipeTitle.replaceAll(' ', '_');
+
+    // Improve cuisine detection
+    String cuisine = "Indian";
+    final possibleCuisineFields = ["cuisine", "Cuisine", "cuisine_type", "category", "Cuisine Type"];
+    for (final field in possibleCuisineFields) {
+      final val = item[field]?.toString();
+      if (val != null && val.isNotEmpty && val.toLowerCase() != "unknown") {
+        cuisine = val;
+        break;
+      }
+    }
 
     return RecipeModel(
       id: id,
       title: recipeTitle,
-      cuisine: item["cuisine"]?.toString() ?? "Indian",
+      cuisine: cuisine,
       cookTime: cookTime.toString(),
       image: item["image_url"]?.toString() ?? 
            item["recipe_image_url"]?.toString() ??
@@ -170,21 +200,76 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
+  bool _stopImageGeneration = false;
+
+  void stopImageGeneration() {
+    _stopImageGeneration = true;
+    notifyListeners();
+  }
+
   // Load banner recipes
   Future<void> loadBannerRecipes() async {
     try {
+      _stopImageGeneration = false; // Reset stop flag
       isBannerLoading = true;
-      notifyListeners(); // Notify loading state if needed
+      notifyListeners(); 
       
       final rawData = await _homeRecipeService.fetchBannerRecipes();
       if (rawData.isNotEmpty) {
         bannerRecipes = _normalizeRecipes(rawData);
+        notifyListeners();
+        
+        // Start generating images sequentially
+        _generateBannerImagesSequentially();
       }
     } catch (e) {
       debugPrint('Error loading banner recipes: $e');
     } finally {
       isBannerLoading = false;
       notifyListeners();
+    }
+  }
+
+  // 🔹 Sequential image generation to avoid overwhelming the API
+  Future<void> _generateBannerImagesSequentially() async {
+    debugPrint('🎨 [HomeProvider] Starting sequential image generation for ${bannerRecipes.length} banner recipes...');
+    
+    for (int i = 0; i < bannerRecipes.length; i++) {
+        if (_stopImageGeneration) {
+          debugPrint('🛑 [HomeProvider] Image generation stopped by user action');
+          break;
+        }
+
+        final recipe = bannerRecipes[i];
+        
+        // Only generate if image is the default fallback or empty
+        final bool isFallback = recipe.image.contains('pexels.com') || recipe.image.isEmpty;
+        
+        if (isFallback) {
+            try {
+                debugPrint('🖼️ [HomeProvider] Generating image $i/${bannerRecipes.length} for: ${recipe.title}');
+                
+                final imageUrl = await _homeRecipeService.generateRecipeImage(recipe.title);
+                
+                if (imageUrl != null && imageUrl.isNotEmpty) {
+                    bannerRecipes[i] = recipe.copyWith(image: imageUrl);
+                    notifyListeners();
+                    debugPrint('✅ [HomeProvider] Successfully generated image for: ${recipe.title}');
+                } else {
+                    debugPrint('⚠️ [HomeProvider] Failed to generate image for: ${recipe.title}');
+                }
+            } catch (e) {
+                debugPrint('❌ [HomeProvider] Error generating image for ${recipe.title}: $e');
+                // Continue to next recipe despite error
+            }
+            
+            // Wait a small delay between requests to be safe
+            await Future.delayed(const Duration(milliseconds: 500));
+        }
+    }
+    
+    if (!_stopImageGeneration) {
+      debugPrint('🎉 [HomeProvider] Sequential image generation completed');
     }
   }
 

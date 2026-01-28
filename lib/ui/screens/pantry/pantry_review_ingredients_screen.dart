@@ -16,6 +16,7 @@ import '../../../state/pantry_state.dart';
 import 'pantry_home_screen.dart';
 import 'pantry_search_add_screen.dart';
 import 'package:lottie/lottie.dart';
+import '../../../core/services/auth_service.dart';
 
 enum ReviewState { confirm, scanning, failed }
 
@@ -92,8 +93,16 @@ class _PantryReviewIngredientsScreenState
                           items: convertedIngredients,
                         ),
                       ),
-                    ).then((_) {
-                      // When coming back from review screen, reset to confirm state
+                    ).then((result) {
+                      // Check if items were added successfully
+                      if (result == true) {
+                        if (mounted) {
+                          Navigator.pop(context, true);
+                        }
+                        return;
+                      }
+                      
+                      // Otherwise reset to confirm state (user cancelled/backed out)
                       if (mounted) {
                         setState(() => _state = ReviewState.confirm);
                       }
@@ -863,11 +872,27 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
 
                   // Save items to remote server using the correct API format
                   debugPrint("📤 [PantryReview] Saving ${pantryItems.length} items to remote server...");
-                  final serverSuccess = await _pantryService.addIndividualPantryItems(pantryItems);
-                  debugPrint("✅ [PantryReview] Server save result: $serverSuccess");
+                  final authService = Provider.of<AuthService>(context, listen: false);
+                  final String? userId = authService.user?.mobile_no;
+                  final serverResponse = await _pantryService.addIndividualPantryItems(pantryItems, userId: userId);
+                  debugPrint("✅ [PantryReview] Server save result: $serverResponse");
                   
-                  if (!serverSuccess['status']) {
-                    debugPrint("⚠️ [PantryReview] Failed to save to server, but local save succeeded");
+                  // Comprehensive verification using response IDs
+                  bool isServerVerified = false;
+                  if (serverResponse['status'] == true && serverResponse['added_items'] != null) {
+                    final addedItems = serverResponse['added_items'] as List;
+                    if (addedItems.isNotEmpty) {
+                      // Check if items have IDs as requested by user
+                      final hasIds = addedItems.any((item) => item['_id'] != null);
+                      if (hasIds) {
+                        isServerVerified = true;
+                        debugPrint("🔍 [PantryReview] Server success verified with ${addedItems.length} items (IDs present)");
+                      }
+                    }
+                  }
+
+                  if (!isServerVerified) {
+                    debugPrint("⚠️ [PantryReview] Server verification failed or IDs missing, though status might be true");
                   }
                   
                   String message;
@@ -894,14 +919,8 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
                       ),
                     );
                     
-                    // Clear the navigation stack and go directly to pantry home
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PantryHomeScreen(),
-                      ),
-                      (route) => false, // Remove all previous routes
-                    );
+                    // Return success to the previous screen (IngredientEntryScreen)
+                    Navigator.pop(context, true);
                   }
                 } catch (error) {
                   debugPrint('Error adding to pantry: $error');

@@ -340,15 +340,7 @@ class _PantrySearchAddScreenState extends State<PantrySearchAddScreen> {
                           style: const TextStyle(
                               fontWeight: FontWeight.w600)),
                       OutlinedButton(
-                        onPressed: () {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    const PantryHomeScreen()),
-                            (_) => false,
-                          );
-                        },
+                        onPressed: () => Navigator.pop(context),
                         child: const Text("Finish Adding"),
                       )
                     ],

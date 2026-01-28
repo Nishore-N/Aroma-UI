@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../data/services/pantry_add_service.dart';
 import '../../../data/services/shopping_list_service.dart';
 import '../../../state/pantry_state.dart';
+import '../../../core/services/auth_service.dart';
 
 const Color kAccent = Color(0xFFFF7A4A);
 
@@ -106,7 +107,9 @@ class _ReviewItemsScreenState extends State<ReviewItemsScreen> {
     }
 
     // Save to server
-    final success = await PantryAddService().saveToPantry(reviewItems);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final String? userId = authService.user?.mobile_no;
+    final success = await PantryAddService().saveToPantry(reviewItems, userId: userId);
 
     // Store ingredients in MongoDB after successful pantry save
     if (success) {

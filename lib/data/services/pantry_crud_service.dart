@@ -11,12 +11,18 @@ class PantryCrudService {
   static String get _removeUrl => ApiEndpoints.pantryRemove;
 
   // 🔹 READ: Get all pantry items
-  Future<List<Map<String, dynamic>>> getPantryItems() async {
+  Future<List<Map<String, dynamic>>> getPantryItems({String? userId}) async {
     try {
       debugPrint("📤 Fetching pantry items...");
       
+      String url = _listUrl;
+      if (userId != null && userId.isNotEmpty) {
+        url = "$url?userId=$userId";
+      }
+      debugPrint("🔗 Calling URL: $url");
+      
       final dio = Dio();
-      final response = await dio.get(_listUrl);
+      final response = await dio.get(url);
       
       if (response.statusCode == 200 && response.data['status'] == true) {
         final List<dynamic> data = response.data['data'] ?? [];
@@ -71,7 +77,7 @@ class PantryCrudService {
   }
 
   // 🔹 DELETE: Remove pantry items
-  Future<Map<String, dynamic>> removePantryItems(List<Map<String, dynamic>> items) async {
+  Future<Map<String, dynamic>> removePantryItems(List<Map<String, dynamic>> items, {String? userId}) async {
     try {
       debugPrint("🗑️ Removing ${items.length} pantry items...");
       
@@ -84,6 +90,7 @@ class PantryCrudService {
       
       // Create the request body in the correct format
       final requestBody = {
+        if (userId != null) "userId": userId,
         "ingredients_with_quantity": ingredientsWithQuantity,
         "message": "Food items extracted successfully",
         "raw_text": jsonEncode({
@@ -107,21 +114,29 @@ class PantryCrudService {
     }
   }
 
-  // 🔹 DELETE: Clear all pantry items (client-side solution)
-  Future<bool> clearAllPantryItems() async {
+  // 🔹 DELETE: Clear all pantry items
+  Future<bool> clearAllPantryItems({String? userId}) async {
     try {
       debugPrint("🗑️ Clearing all pantry items...");
       
-      // Since remove endpoint doesn't work (405 error for all items), 
-      // we'll implement client-side clearing only
-      debugPrint("⚠️ Note: Server remove endpoint doesn't support individual item removal");
-      debugPrint("✅ Client-side clear completed - pantry will appear empty locally");
+      // 1. Fetch current items to know what to delete
+      final currentItems = await getPantryItems(userId: userId);
       
-      // Return true to indicate client-side clear was successful
-      // The UI will show empty state even though server still has items
+      if (currentItems.isEmpty) {
+        debugPrint("✅ Pantry is already empty");
+        return true;
+      }
+
+      // 2. Remove all items using remote endpoint
+      await removePantryItems(currentItems, userId: userId);
+      
+      debugPrint("✅ All pantry items cleared from server");
       return true;
     } catch (e) {
       debugPrint("❌ Error clearing pantry items: $e");
+      
+      // Even if server fails, we might want to return false so UI knows
+      // But for now, we'll assume if it fails, it fails.
       return false;
     }
   }

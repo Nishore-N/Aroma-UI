@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 
+import '../../../core/services/auth_service.dart';
+import '../../../data/services/pantry_add_service.dart';
+
 import '../../../data/models/ingredient_model.dart';
 import '../../../widgets/primary_button.dart';
 import '../../../state/pantry_state.dart';
@@ -102,30 +105,66 @@ class _PantryReviewItemsScreenState extends State<PantryReviewItemsScreen> {
   }
 
   // 🔥 CORE FIX: SAVE TO PANTRY STATE
-  void _addItemsToPantry() {
+  Future<void> _addItemsToPantry() async {
   final pantryState = context.read<PantryState>();
+  final authService = context.read<AuthService>();
   final items = _getUpdatedItems();
 
   debugPrint("🧪 ADD TO PANTRY CLICKED: ${items.length} items");
 
-  for (final item in items) {
-    final rawName = item['name']?.toString() ?? '';
+  // Show loading indicator
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => const Center(
+      child: CircularProgressIndicator(),
+    ),
+  );
 
-    final normalizedName = rawName
-        .toLowerCase()
-        .replaceAll(RegExp(r'^w\s+'), '') // removes "W APPLE"
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+  try {
+    for (final item in items) {
+      final rawName = item['name']?.toString() ?? '';
 
-    final qty = (item['quantity'] as num).toDouble();
-    final unit = item['unit']?.toString() ?? 'pcs';
+      final normalizedName = rawName
+          .toLowerCase()
+          .replaceAll(RegExp(r'^w\s+'), '') // removes "W APPLE"
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
 
-    debugPrint("➡ Saving: $normalizedName | $qty $unit");
+      final qty = (item['quantity'] as num).toDouble();
+      final unit = item['unit']?.toString() ?? 'pcs';
 
-    pantryState.setItem(normalizedName, qty, unit);
+      debugPrint("➡ Saving local: $normalizedName | $qty $unit");
+
+      pantryState.setItem(normalizedName, qty, unit);
+    }
+
+    // Call remote API
+    final String? userId = authService.user?.mobile_no;
+    final pantryService = PantryAddService();
+    final serverResponse = await pantryService.addIndividualPantryItems(items, userId: userId);
+    
+    debugPrint("✅ Server addition result: $serverResponse");
+    
+    // Verify using IDs if present in response
+    if (serverResponse['status'] == true && serverResponse['added_items'] != null) {
+      final addedItems = serverResponse['added_items'] as List;
+      debugPrint("🔍 Verified ${addedItems.length} items added with IDs");
+    }
+
+    if (mounted) {
+      Navigator.pop(context); // Close loading dialog
+      Navigator.pop(context, items);
+    }
+  } catch (e) {
+    debugPrint("❌ Error adding to pantry: $e");
+    if (mounted) {
+      Navigator.pop(context); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to add items to pantry: $e")),
+      );
+    }
   }
-
-  Navigator.pop(context, items);
 }
 
 

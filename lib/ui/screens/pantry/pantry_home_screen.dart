@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../state/pantry_state.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../data/services/shopping_list_service.dart';
 import '../../../data/services/pantry_list_service.dart';
 import '../../../data/services/pantry_image_service.dart';
@@ -16,6 +17,8 @@ import 'pantry_item_details_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../home/home_screen.dart';
 import 'pantry_search_add_screen.dart';
+import '../add_ingredients/ingredient_entry_screen.dart';
+import '../../../core/enums/scan_mode.dart';
 
 
 const Color kAccent = Color(0xFFFF7A4A);
@@ -33,6 +36,32 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
   final PantryImageService _imageService = PantryImageService();
   List<Map<String, dynamic>> _remotePantryItems = [];
   bool _isLoading = false;
+  
+  // Selection Mode State
+  bool _isSelectionMode = false;
+  final Set<String> _selectedItems = {};
+
+  void _toggleSelectionMode(bool value) {
+    setState(() {
+      _isSelectionMode = value;
+      if (!value) {
+        _selectedItems.clear();
+      }
+    });
+  }
+
+  void _toggleItemSelection(String itemName) {
+    setState(() {
+      if (_selectedItems.contains(itemName)) {
+        _selectedItems.remove(itemName);
+        if (_selectedItems.isEmpty) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedItems.add(itemName);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -66,7 +95,10 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
     });
     
     try {
-      final pantryItems = await _pantryListService.fetchPantryItems();
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final String? userId = authService.user?.mobile_no;
+      
+      final pantryItems = await _pantryListService.fetchPantryItems(userId: userId);
       setState(() {
         _remotePantryItems = pantryItems;
         _isLoading = false;
@@ -209,26 +241,26 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-    icon: const Icon(Icons.arrow_back, color: Colors.black),
-    onPressed: () {
-      // Navigate directly to home screen, clearing the navigation stack
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const HomeScreen(phoneNumber: ''),
-        ),
-        (route) => false, // Remove all previous routes
-      );
-    },
-  ),
-        title: const Text(
-          "Pantry",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
+        leading: _isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close, color: Colors.black),
+                onPressed: () => _toggleSelectionMode(false),
+              )
+            : IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () => Navigator.pop(context),
+              ),
+        title: Text(
+          _isSelectionMode ? "${_selectedItems.length} Selected" : "Pantry",
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
         ),
         actions: [
-          // Clear All button
-          if (pantryItems.isNotEmpty)
+          if (_isSelectionMode)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: _showDeleteSelectedConfirmation,
+            )
+          else if (pantryItems.isNotEmpty)
             TextButton.icon(
               onPressed: _showClearAllConfirmation,
               icon: const Icon(Icons.clear_all, color: Colors.red, size: 20),
@@ -359,13 +391,7 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
 
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: kAccent,
-        onPressed: () {
-          // Navigate to pantry empty screen, replacing current route
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const PantryEmptyScreen()),
-          );
-        },
+        onPressed: () => _showAddItemsBottomSheet(context),
         icon: const Icon(Icons.add),
         label: const Text("Add Items"),
       ),
@@ -461,17 +487,36 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
           separatorBuilder: (_, __) => const SizedBox(width: 12),
           itemBuilder: (_, index) {
             final item = items[index];
+            final itemName = item['name'] as String;
+            final isSelected = _selectedItems.contains(itemName);
+            
             return GestureDetector(
-    onTap: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PantryItemDetailsScreen(item: item),
-        ),
-      );
-    },
-    child: _itemCard(item),
-  );
+              onTap: () {
+                if (_isSelectionMode) {
+                  _toggleItemSelection(itemName);
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PantryItemDetailsScreen(item: item),
+                    ),
+                  );
+                }
+              },
+              onLongPress: () {
+                if (!_isSelectionMode) {
+                  setState(() {
+                    _isSelectionMode = true;
+                    _selectedItems.add(itemName);
+                  });
+                }
+              },
+              child: _itemCard(
+                item, 
+                isSelected: isSelected,
+                isSelectionMode: _isSelectionMode
+              ),
+            );
           },
         ),
       ),
@@ -482,86 +527,116 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
 }
 
 
-  Widget _itemCard(Map<String, dynamic> item) {
-  return Container(
-    width: 150, // Increased from 130 to 150
-    padding: const EdgeInsets.all(8),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: Colors.grey.shade300),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Image takes most of the space
-        Expanded(
-          flex: 3,
-          child: Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: _buildItemImage(item),
-            ),
-          ),
+  Widget _itemCard(Map<String, dynamic> item, {bool isSelected = false, bool isSelectionMode = false}) {
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.red.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? Colors.red : Colors.grey.shade300,
+          width: isSelected ? 2 : 1
         ),
-        const SizedBox(height: 8),
-        // Name takes minimal space
-        Center(
-          child: Text(
-            item['name'],
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Add to shopping list button - compact with toggle state
-        Consumer<ShoppingListService>(
-          builder: (_, shoppingService, __) {
-            final isAdded = shoppingService.isAdded(item['name']);
-            return GestureDetector(
-              onTap: () => isAdded ? _removeFromShoppingList(item) : _addToShoppingList(item),
-              child: Container(
-                width: double.infinity,
-                height: 28, // Increased from 26
-                decoration: BoxDecoration(
-                  color: isAdded ? Colors.green.shade100 : Colors.orange.shade100,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: isAdded ? Colors.green.shade300 : Colors.orange.shade300, 
-                    width: 0.5
+      ),
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image takes most of the space
+              Expanded(
+                flex: 3,
+                child: Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: _buildItemImage(item),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isAdded ? Icons.check_circle_outline : Icons.shopping_cart_outlined,
-                      size: 14, // Increased from 13
-                      color: isAdded ? Colors.green.shade700 : Colors.orange.shade700,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      isAdded ? 'Added' : 'Add',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isAdded ? Colors.green.shade700 : Colors.orange.shade700,
-                      ),
-                    ),
-                  ],
+              ),
+              const SizedBox(height: 8),
+              // Name takes minimal space
+              Center(
+                child: Text(
+                  item['name'],
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
                 ),
               ),
-            );
-          },
-        ),
-      ],
-    ),
-  );
-}
+              const SizedBox(height: 8),
+              // Add to shopping list button - compact with toggle state
+              Consumer<ShoppingListService>(
+                builder: (_, shoppingService, __) {
+                  final isAdded = shoppingService.isAdded(item['name']);
+                  return GestureDetector(
+                    onTap: () => isAdded ? _removeFromShoppingList(item) : _addToShoppingList(item),
+                    child: Container(
+                      width: double.infinity,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: isAdded ? Colors.green.shade100 : Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isAdded ? Colors.green.shade300 : Colors.orange.shade300, 
+                          width: 0.5
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isAdded ? Icons.check_circle_outline : Icons.shopping_cart_outlined,
+                            size: 14,
+                            color: isAdded ? Colors.green.shade700 : Colors.orange.shade700,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            isAdded ? 'Added' : 'Add',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isAdded ? Colors.green.shade700 : Colors.orange.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          
+          // Selection Checkbox Overlay
+          if (isSelectionMode)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.red : Colors.white.withOpacity(0.8),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? Colors.red : Colors.grey,
+                  ),
+                ),
+                child: Icon(
+                  Icons.check,
+                  size: 14,
+                  color: isSelected ? Colors.white : Colors.transparent,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
 // Helper method to build the item image
 Widget _buildItemImage(Map<String, dynamic> item) {
@@ -709,7 +784,10 @@ Widget _buildItemImage(Map<String, dynamic> item) {
     );
 
     try {
-      final success = await _pantryListService.clearAllPantryItems();
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final String? userId = authService.user?.mobile_no;
+      
+      final success = await _pantryListService.clearAllPantryItems(userId: userId);
       
       // Close loading dialog
       Navigator.of(context).pop();
@@ -726,19 +804,19 @@ Widget _buildItemImage(Map<String, dynamic> item) {
         
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Pantry cleared successfully!'),
+          const SnackBar(
+            content: Text('Pantry cleared successfully!'),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
+            duration: Duration(seconds: 3),
           ),
         );
       } else {
         // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to clear pantry items. Please try again.'),
+          const SnackBar(
+            content: Text('Failed to clear pantry items. Please try again.'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
+            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -756,6 +834,98 @@ Widget _buildItemImage(Map<String, dynamic> item) {
       );
     }
   }
+
+  // ---------------- DELETE SELECTED FUNCTIONALITY ----------------
+  void _showDeleteSelectedConfirmation() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Delete ${_selectedItems.length} Items?',
+            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'Are you sure you want to remove these items from your pantry?',
+            style: TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteSelectedItems();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteSelectedItems() async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final String? userId = authService.user?.mobile_no;
+      
+      // Find the full item objects for the selected names
+      final itemsToDelete = _remotePantryItems
+          .where((item) => _selectedItems.contains(item['name']))
+          .toList();
+
+      final success = await _pantryListService.removePantryItems(itemsToDelete, userId: userId);
+      
+      Navigator.pop(context); // Close loading
+
+      if (success) {
+        // Update local state
+        final pantryState = Provider.of<PantryState>(context, listen: false);
+        await pantryState.removeItems(_selectedItems.toList());
+        
+        setState(() {
+          _remotePantryItems.removeWhere((item) => _selectedItems.contains(item['name']));
+          _selectedItems.clear();
+          _isSelectionMode = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Items deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete items'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context); // Close loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting items: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+
 
   // ---------------- ADD TO SHOPPING LIST ----------------
   void _addToShoppingList(Map<String, dynamic> item) {
@@ -794,11 +964,105 @@ Widget _buildItemImage(Map<String, dynamic> item) {
     debugPrint('Removing item: ${item['name']}');
     
     final shoppingService = Provider.of<ShoppingListService>(context, listen: false);
-    final name = item['name'] as String;
-    
-    shoppingService.removeItem(name);
-    
-    debugPrint('✅ Item removed from shopping list');
-    debugPrint('==============================');
+    shoppingService.removeItem(item['name']);
+  }
+
+  // ---------------- ADD ITEMS BOTTOM SHEET ----------------
+  void _showAddItemsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                "Hey there!",
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                "How do you want to add items to your pantry?",
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: kAccent,
+                    side: const BorderSide(color: kAccent, width: 1.4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PantrySearchAddScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    'Search & Add',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kAccent,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const IngredientEntryScreen(
+                          mode: ScanMode.pantry,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    'Upload / Take a Photo',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

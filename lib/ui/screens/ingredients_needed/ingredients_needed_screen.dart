@@ -3,12 +3,17 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../cooking_steps/cooking_steps_screen.dart';
 import '../../../core/utils/item_image_resolver.dart';
 import '../../../core/utils/recipe_formatter.dart';
+import 'cookware_needed_screen.dart';
 
 class IngredientsNeededScreen extends StatelessWidget {
   final int servings;
   final List<Map<String, dynamic>> ingredients;
   final List<Map<String, dynamic>> steps;
   final String recipeName;
+  final String description;
+  final String recipeImage;
+  final List<String> cookware;
+  final Map<String, String> initialGeneratedImages;
 
    const IngredientsNeededScreen({
     super.key,
@@ -16,10 +21,14 @@ class IngredientsNeededScreen extends StatelessWidget {
     required this.ingredients,
     required this.steps,
     required this.recipeName,
+    this.description = '',
+    this.recipeImage = '',
+    this.cookware = const [],
+    this.initialGeneratedImages = const {},
   });
 
   Map<String, String> _extractGeneratedImages() {
-    final Map<String, String> generated = {};
+    final Map<String, String> generated = Map<String, String>.from(initialGeneratedImages);
     for (var ing in ingredients) {
       final name = (ing['item'] ?? ing['name'] ?? ing['ingredient'] ?? '').toString();
       final url = ing['image_url']?.toString() ?? ing['imageUrl']?.toString() ?? ing['image']?.toString() ?? '';
@@ -46,9 +55,14 @@ class IngredientsNeededScreen extends StatelessWidget {
   Widget _buildDynamicIngredientIcon(Map<String, dynamic> ingredientData) {
     final ingredientName = (ingredientData['name'] ?? ingredientData['ingredient'] ?? ingredientData['item'] ?? 'Ingredient').toString();
     // Extract imageUrl from multiple possible fields for S3 URL support
-    final imageUrl = ingredientData['image_url']?.toString() ?? 
+    String imageUrl = ingredientData['image_url']?.toString() ?? 
                    ingredientData['imageUrl']?.toString() ?? 
                    ingredientData['image']?.toString() ?? '';
+    
+    // Fallback to initialGeneratedImages if missing in the list item
+    if (imageUrl.isEmpty) {
+      imageUrl = initialGeneratedImages[ingredientName] ?? '';
+    }
     
     return Padding(
       padding: const EdgeInsets.only(right: 12),
@@ -113,134 +127,187 @@ class IngredientsNeededScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ---------------- BACK BUTTON ----------------
-              Container(
-                height: 42,
-                width: 42,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // ---------------- TITLE (BOLD) ----------------
-              const Text(
-                "Ingredients Needed",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black,
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // ---------------- INFO BOX EXACT LIKE SCREENSHOT ----------------
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F3F3),  // EXACT GREY BACKGROUND
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: RichText(
-                  text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 18,
-                      color: Colors.black,
-                      height: 1.4,
-                      fontWeight: FontWeight.w600,
+        child: Column(
+          children: [
+            // ---------------- STICKY HEADER ----------------
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                   Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      shape: BoxShape.circle,
                     ),
-                    children: [
-                      const TextSpan(
-                        text: "Make sure you have all ingredients\nfor ",
-                      ),
-                      TextSpan(
-                        text: "$servings serving",
-                        style: const TextStyle(
-                          color: Color(0xFFFF6A45),
-                          fontWeight: FontWeight.w900,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.black),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    "Ingredients Needed",
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ---------------- RECIPE SUMMARY ----------------
+                    if (recipeImage.isNotEmpty)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: CachedNetworkImage(
+                          imageUrl: recipeImage,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 22),
-
-              // ---------------- INGREDIENT BOX LIST ----------------
-              Expanded(
-                child: ListView.separated(
-                  itemCount: ingredients.length,
-                  separatorBuilder: (_, __) => const Divider(
-                    height: 1,
-                    thickness: 0.7,
-                    color: Color(0xFFE5E5E5),
-                  ),
-                  itemBuilder: (context, index) {
-                    final item = ingredients[index];
-                    // Get the name and quantity with fallbacks
-                    final name = (item['name'] ?? item['ingredient'] ?? item['item'] ?? 'Ingredient').toString();
-                    final baseQty = item['qty'] ?? item['quantity'] ?? item['amount'] ?? 'as needed';
-                    final unit = item['unit']?.toString() ?? '';
-                    final qty = RecipeFormatter.formatQuantity(baseQty, servings, unit);
-                    final icon = item['icon'] ?? '';
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      child: Row(
-                        children: [
-                          // DYNAMIC ICON
-                          _buildIngredientIcon(icon, item),
-
-                          // NAME + QUANTITY
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  name,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  qty,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF7A7A7A),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                    
+                    const SizedBox(height: 16),
+                    
+                    Text(
+                      recipeName,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                    );
-                  },
+                    ),
+                    
+                    if (description.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
+                          height: 1.4,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+
+                    const SizedBox(height: 20),
+
+                    // ---------------- SERVINGS INFO ----------------
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F3F3),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: Colors.black,
+                            height: 1.4,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          children: [
+                            const TextSpan(
+                              text: "Make sure you have all ingredients for ",
+                            ),
+                            TextSpan(
+                              text: "$servings serving",
+                              style: const TextStyle(
+                                color: Color(0xFFFF6A45),
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    const SizedBox(height: 22),
+
+                    // ---------------- INGREDIENTS SECTION ----------------
+                    // Removed "Ingredients" title as per request to match image implicitly if needed, 
+                    // but keeping it simple as per "old ui as old flow but...". 
+                    // The user said "i doint need as checklist screen andd description or image just as i provided in ui image"
+                    // The image provided DOES NOT show the "Ingredients" header text, just the list.
+                    // However, keeping the list structure.
+                    
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: ingredients.length,
+                      separatorBuilder: (_, __) => const Divider(
+                        height: 1,
+                        thickness: 0.7,
+                        color: Color(0xFFE5E5E5),
+                      ),
+                      itemBuilder: (context, index) {
+                        final item = ingredients[index];
+                        final name = (item['name'] ?? item['ingredient'] ?? item['item'] ?? 'Ingredient').toString();
+                        final baseQty = item['qty'] ?? item['quantity'] ?? item['amount'] ?? 'as needed';
+                        final unit = item['unit']?.toString() ?? '';
+                        final qty = RecipeFormatter.formatQuantity(baseQty, servings, unit);
+                        final icon = item['icon'] ?? '';
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          child: Row(
+                            children: [
+                              _buildIngredientIcon(icon, item),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      qty,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF7A7A7A),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 30),
+                  ],
                 ),
               ),
+            ),
 
-              const SizedBox(height: 16),
-
-              // ---------------- BOTTOM BUTTON ----------------
-              SizedBox(
+            // ---------------- BOTTOM BUTTON ----------------
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
@@ -251,19 +318,14 @@ class IngredientsNeededScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    // Create a default step if steps is empty or null
+                    // Existing steps processing logic
                     List<Map<String, dynamic>> stepsToPass = [];
-                    
                     if (steps.isNotEmpty) {
-                      // Ensure all steps have required fields and proper ingredient structure
                       stepsToPass = steps.map((step) {
-                        // Process ingredients_used to ensure proper structure
                         List<Map<String, dynamic>> processedIngredients = [];
-                        
                         if (step['ingredients_used'] != null) {
-                          final ingredients = step['ingredients_used'] as List;
-                          processedIngredients = ingredients.map((ing) {
-                            // Handle different ingredient data structures
+                          final ingredientsList = step['ingredients_used'] as List;
+                          processedIngredients = ingredientsList.map((ing) {
                             if (ing is Map<String, dynamic>) {
                               return {
                                 'item': ing['item'] ?? ing['name'] ?? ing['ingredient'] ?? 'Ingredient',
@@ -290,7 +352,6 @@ class IngredientsNeededScreen extends StatelessWidget {
                         };
                       }).toList();
                     } else {
-                      // Create a default step with processed ingredients
                       final processedIngredients = ingredients.map((ing) {
                         return {
                           'item': ing['item'] ?? ing['name'] ?? ing['ingredient'] ?? 'Ingredient',
@@ -300,20 +361,19 @@ class IngredientsNeededScreen extends StatelessWidget {
                         };
                       }).toList();
                       
-                      stepsToPass = [
-                        {
-                          'instruction': 'Follow recipe instructions',
-                          'ingredients_used': processedIngredients,
-                          'tips': ['Make sure to follow the recipe carefully']
-                        }
-                      ];
+                      stepsToPass = [{
+                        'instruction': 'Follow recipe instructions',
+                        'ingredients_used': processedIngredients,
+                        'tips': ['Make sure to follow the recipe carefully']
+                      }];
                     }
                     
+                    // Navigate to CookingStepsScreen directly, SKIPPING CookwareNeededScreen
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => CookingStepsScreen(
-                          steps: stepsToPass,              // detailed steps
+                          steps: stepsToPass,
                           currentStep: 1,
                           allIngredients: ingredients,
                           recipeName: recipeName,
@@ -324,17 +384,17 @@ class IngredientsNeededScreen extends StatelessWidget {
                     );
                   },
                   child: const Text(
-                    "Let's Start",
+                    "Lets Start",
                     style: TextStyle(
-                      color: Colors.black,   // BLACK TEXT
+                      color: Colors.black,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

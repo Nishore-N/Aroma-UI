@@ -126,6 +126,7 @@ class _GenerateRecipeScreenState extends State<GenerateRecipeScreen> {
           cookTime: meal.cookingTime,
           servings: 1,
           ingredients: [], // Details not in this API
+          recipeId: meal.id,
           fullRecipeData: meal.toJson(),
         ),
       ),

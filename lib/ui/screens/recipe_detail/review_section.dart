@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class ReviewSection extends StatefulWidget {
   final List<Map<String, dynamic>> reviews;
@@ -16,6 +17,7 @@ class ReviewSection extends StatefulWidget {
 
 class _ReviewSectionState extends State<ReviewSection> {
   late List<Map<String, dynamic>> _reviews;
+  bool isExpanded = false;
 
   @override
   void initState() {
@@ -97,26 +99,29 @@ class _ReviewSectionState extends State<ReviewSection> {
         Row(
           children: [
             Text(
-              _reviews.isEmpty
-                  ? "No reviews yet"
-                  : "${_reviews.length} ${_reviews.length == 1 ? 'Review' : 'Reviews'}",
+              "${_reviews.length} Comments",
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Colors.black,
+                color: Colors.grey.shade600,
               ),
             ),
-            if (_reviews.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Text(
-                '⭐ ${averageRating.toStringAsFixed(1)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.orange.shade800,
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Container(
+                width: 4, 
+                height: 4, 
+                decoration: BoxDecoration(color: Colors.grey.shade400, shape: BoxShape.circle),
               ),
-            ],
+            ),
+            Text(
+              "Reviewed by ${_reviews.length + 100}", // Mocking 'Reviewed by' count to match typical social proof design
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade600,
+              ),
+            ),
           ],
         ),
 
@@ -148,7 +153,7 @@ class _ReviewSectionState extends State<ReviewSection> {
         else
           /// ---- SHOW REVIEWS ----
           Column(
-            children: _reviews.take(2).map((review) {
+            children: (isExpanded ? _reviews : _reviews.take(2)).map((review) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 20),
                 child: Row(
@@ -256,8 +261,15 @@ class _ReviewSectionState extends State<ReviewSection> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _actionButton(Icons.edit, "Write review"),
-            _actionButton(Icons.read_more, "Read More"),
+            _actionButton("assets/images/reviews/write_review.svg", "Write review", () {}),
+            if (_reviews.length > 2)
+              _actionButton(
+                isExpanded 
+                    ? "assets/images/reviews/read_more.svg" 
+                    : "assets/images/reviews/read_more.svg", 
+                isExpanded ? "Read Less" : "Read More",
+                () => setState(() => isExpanded = !isExpanded),
+              ),
           ],
         ),
 
@@ -266,20 +278,23 @@ class _ReviewSectionState extends State<ReviewSection> {
     );
   }
 
-  Widget _actionButton(IconData icon, String label) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFFFF6A45), size: 20),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Color(0xFFFF6A45),
-            fontWeight: FontWeight.w700,
+  Widget _actionButton(String svgAsset, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        children: [
+          SvgPicture.asset(svgAsset, width: 22, height: 22, colorFilter: const ColorFilter.mode(Color(0xFFFF6A45), BlendMode.srcIn)),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 15,
+              color: Color(0xFFFF6A45),
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

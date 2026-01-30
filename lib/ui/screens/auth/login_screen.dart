@@ -169,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Welcome to Aroma!',
+                    'Welcome to Aroma Chefs!',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w800,

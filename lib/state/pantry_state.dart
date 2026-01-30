@@ -187,6 +187,40 @@ class PantryState extends ChangeNotifier {
 
     await prefs.setString(_storageKey, jsonEncode(data));
   }
+
+  // SET ITEMS FROM REMOTE
+  Future<void> setRemoteItems(List<Map<String, dynamic>> remoteItems) async {
+    debugPrint("🔄 Syncing ${remoteItems.length} remote items to local state...");
+    
+    _items.clear();
+    // _itemImages.clear(); // Optional: Decide if you want to clear image cache or keep it. Keeping it may be better for performance if names match.
+
+    for (final item in remoteItems) {
+      final name = item['name'] ?? '';
+      final qty = (item['quantity'] ?? 0).toDouble();
+      final unit = item['unit'] ?? '';
+      final imageUrl = item['imageUrl'];
+
+      if (name.isNotEmpty) {
+        _items.add(
+          PantryItem(
+            name: name,
+            quantity: qty,
+            unit: unit,
+            imageUrl: imageUrl,
+          ),
+        );
+        
+        // Update image cache if URL exists
+        if (imageUrl != null && imageUrl.isNotEmpty) {
+          _itemImages[_normalizeName(name)] = imageUrl;
+        }
+      }
+    }
+
+    await _savePantry();
+    notifyListeners();
+  }
 }
 
 class PantryItem {

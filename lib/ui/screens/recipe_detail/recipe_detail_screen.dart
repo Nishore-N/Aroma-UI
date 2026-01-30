@@ -13,6 +13,7 @@ import '../../../data/services/api_client.dart';
 import '../../../data/services/recipe_detail_service.dart';
 import '../../../state/pantry_state.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final String image;
@@ -81,8 +82,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     _ingredientData = List.from(widget.ingredients); // Use List.from to create a mutable copy
     cookTime = widget.cookTime; 
     
-    // Start generating images for initial ingredients parallely
-    _checkAndGenerateImages();
+    // Start generating images for initial ingredients parallely - REMOVED to prioritize details fetch
+    // _checkAndGenerateImages();
     
     // Check if we have full data passed from previous screen
     if (widget.fullRecipeData != null && widget.fullRecipeData!.isNotEmpty) {
@@ -101,6 +102,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       _fetchFullRecipeDetails(widget.recipeId!);
     } else {
       debugPrint('✅ [RecipeDetailScreen] Data appears sufficient. No fetch needed.');
+      // Only generate images if we aren't fetching
+      _checkAndGenerateImages();
     }
   }
 
@@ -123,6 +126,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           isLoading = false;
         });
         _extractBackendData();
+        // Now that we have data, we can start generating images
+        _checkAndGenerateImages();
       } else {
         debugPrint('⚠️ [RecipeDetailScreen] Fetch returned null or empty data. Keeping existing data.');
         setState(() => isLoading = false);
@@ -252,6 +257,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         List<dynamic> rawSteps = [];
         for (final field in possibleStepFields) {
           final stepsVal = recipeData[field];
+          debugPrint('📝 [RecipeDetailScreen] Checking step field "$field": ${stepsVal?.runtimeType}');
+          
           if (stepsVal != null && (stepsVal is List) && stepsVal.isNotEmpty) {
             rawSteps = stepsVal;
             debugPrint('📝 [RecipeDetailScreen] Found steps in "$field"');
@@ -273,9 +280,16 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             .where((s) => s.trim().isNotEmpty)
             .toList();
         
-        if (_cookingSteps.isEmpty && recipeData["Recipe Steps"] is String) {
-            final String stepsStr = recipeData["Recipe Steps"] as String;
-            _cookingSteps = stepsStr.split('\n').where((s) => s.trim().isNotEmpty).toList();
+        // Fallback: Check if we have a string block of steps that wasn't a list
+        if (_cookingSteps.isEmpty) {
+           for (final field in possibleStepFields) {
+             final val = recipeData[field];
+             if (val is String && val.isNotEmpty) {
+               debugPrint('📝 [RecipeDetailScreen] Found steps as String in "$field"');
+               _cookingSteps = val.split('\n').where((s) => s.trim().isNotEmpty).toList();
+               break;
+             }
+           }
         }
         
         debugPrint('📝 [RecipeDetailScreen] Final extracted steps count: ${_cookingSteps.length}');
@@ -310,9 +324,27 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           _ingredientData = rawIngredients.map((ing) {
             if (ing is Map) {
               final name = ing['name'] ?? ing['item'] ?? ing['ingredient'] ?? '';
-              final qty = ing['qty'] ?? ing['quantity'] ?? ing['amount'] ?? '';
-              final unit = ing['unit']?.toString() ?? '';
               
+              var qty = (ing['qty'] ?? ing['quantity'] ?? ing['amount'] ?? '').toString();
+              var unit = (ing['unit']?.toString() ?? '').trim();
+              
+              // If unit is missing, check if quantity string contains both number and text
+              if (unit.isEmpty && qty.isNotEmpty) {
+                 // Try to match "number text" pattern like "2 cups" or "1/2 tbsp"
+                 final match = RegExp(r'^([\d\./\s]+)\s*([a-zA-Z%]+.*)$').firstMatch(qty);
+                 if (match != null) {
+                   // Found a split
+                   final parsedQty = match.group(1)?.trim() ?? qty;
+                   final parsedUnit = match.group(2)?.trim() ?? '';
+                   
+                   // Sanity check: if parsedQty is just distinct numbers/fractions
+                   if (RegExp(r'^[\d\./\s]+$').hasMatch(parsedQty)) {
+                      qty = parsedQty;
+                      unit = parsedUnit;
+                   }
+                 }
+              }
+
               return {
                 'item': name,
                 'quantity': qty,
@@ -320,10 +352,32 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 'image_url': ing['image_url'] ?? ing['imageUrl'] ?? ing['image'] ?? '',
               };
             } else {
+              // Handle string case like "2 cups Rice"
+              final str = ing.toString();
+              String qty = '';
+              String unit = '';
+              String item = str;
+              
+              // Attempt to parse "2 cups Rice"
+              final match = RegExp(r'^([\d\./\s]+)\s+([a-zA-Z]+)\s+(.+)$').firstMatch(str);
+              if (match != null) {
+                 // Try to guess if group 2 is a unit
+                 final possibleUnit = match.group(2)?.trim() ?? '';
+                 final possibleItem = match.group(3)?.trim() ?? '';
+                 
+                 // Simple heuristic for units
+                 final commonUnits = ['cup', 'cups', 'tbsp', 'tsp', 'g', 'kg', 'ml', 'l', 'oz', 'lb', 'clove', 'cloves', 'pinch', 'bunch', 'piece', 'pieces', 'slice', 'slices'];
+                 if (commonUnits.contains(possibleUnit.toLowerCase()) || possibleUnit.length <= 4) {
+                    qty = match.group(1)?.trim() ?? '';
+                    unit = possibleUnit;
+                    item = possibleItem;
+                 }
+              }
+
               return {
-                'item': ing.toString(),
-                'quantity': '',
-                'unit': '',
+                'item': item,
+                'quantity': qty,
+                'unit': unit,
                 'image_url': '',
               };
             }
@@ -519,41 +573,98 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.black)),
             const SizedBox(height: 12),
 
+            const SizedBox(height: 12),
+            
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _RecipeInfoItem(icon: Icons.restaurant, label: widget.cuisine),
-                _RecipeInfoItem(
-                    icon: Icons.local_fire_department,
-                    label: '${_nutrition["calories"]?.toString() ?? "--"} cal'),
-                _RecipeInfoItem(icon: Icons.access_time, label: cookTime.isEmpty ? "N/A" : cookTime),
-                _RecipeInfoItem(icon: Icons.people, label: servings.toString()),
+                Text(
+                  widget.cuisine,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  '${_nutrition["calories"]?.toString() ?? "--"} kcal',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  (cookTime.isEmpty ? "N/A" : cookTime).replaceAll("minutes", "m").replaceAll("mins", "m").replaceAll("min", "m"),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.people_outline, size: 20, color: Color(0xFFFF6A45)),
+                    const SizedBox(width: 4),
+                    Text(
+                      servings.toString(),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
 
             const SizedBox(height: 22),
 
-            AnimatedCrossFade(
-              firstChild: Text(
-                _description.isEmpty ? "No description available" : _description,
-                style: const TextStyle(color: Colors.black),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              secondChild: Text(_description, style: const TextStyle(color: Colors.black)),
-              crossFadeState: isExpanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 250),
-            ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Combine DefaultTextStyle with our custom style to ensure accurate measurement
+                final defaultTextStyle = DefaultTextStyle.of(context);
+                final style = defaultTextStyle.style.copyWith(color: Colors.black);
+                
+                final span = TextSpan(text: _description, style: style);
+                final tp = TextPainter(
+                  text: span,
+                  textAlign: TextAlign.left,
+                  textDirection: TextDirection.ltr,
+                );
+                tp.layout(maxWidth: constraints.maxWidth);
+                
+                // Check actual number of lines
+                final numLines = tp.computeLineMetrics().length;
 
-            GestureDetector(
-              onTap: () => setState(() => isExpanded = !isExpanded),
-              child: const Text(
-                "Read more..",
-                style: TextStyle(
-                    color: Colors.orange, fontWeight: FontWeight.bold),
-              ),
+                if (numLines > 2) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _description,
+                        style: style,
+                        maxLines: isExpanded ? null : 2,
+                        overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () => setState(() => isExpanded = !isExpanded),
+                        child: Text(
+                          isExpanded ? "Read less.." : "Read more..",
+                          style: style.copyWith(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                } else {
+                  return Text(_description, style: style);
+                }
+              },
             ),
 
             const SizedBox(height: 30),
@@ -568,20 +679,21 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               runSpacing: 18,
               children: [
                 _NutritionTile(
-                    icon: Icons.grass,
-                    label: '${_nutrition["carbs"]?.toString() ?? "--"}g'),
+                    svgAsset: "assets/images/nutrition/carbs.svg",
+                    label: '${_nutrition["carbs"]?.toString() ?? "--"}g',
+                    title: "Carbs"),
                 _NutritionTile(
-                    icon: Icons.fitness_center,
-                    label: '${_nutrition["protein"]?.toString() ?? "--"}g'),
+                    svgAsset: "assets/images/nutrition/protein.svg",
+                    label: '${_nutrition["protein"]?.toString() ?? "--"}g',
+                    title: "Protein"),
                 _NutritionTile(
-                    icon: Icons.local_fire_department,
-                    label: '${_nutrition["calories"]?.toString() ?? "--"} cal'),
+                    svgAsset: "assets/images/nutrition/kcal.svg",
+                    label: '${_nutrition["calories"]?.toString() ?? "--"}',
+                    title: "Kcal"),
                 _NutritionTile(
-                    icon: Icons.lunch_dining,
-                    label: '${_nutrition["fats"]?.toString() ?? "--"}g'),
-                _NutritionTile(
-                    icon: Icons.eco,
-                    label: '${_nutrition["fiber"]?.toString() ?? "--"}g'),
+                    svgAsset: "assets/images/nutrition/fat.svg",
+                    label: '${_nutrition["fats"]?.toString() ?? "--"}g',
+                    title: "Fat"),
               ],
             ),
 
@@ -873,44 +985,14 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 }
 
-class _RecipeInfoItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
 
-  const _RecipeInfoItem({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: const BoxDecoration(
-            color: Color(0xFFFFECE5),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: const Color(0xFFFF6A45), size: 24),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
-            color: Colors.black,
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _NutritionTile extends StatelessWidget {
-  final IconData icon;
+  final String svgAsset;
   final String label;
+  final String title;
 
-  const _NutritionTile({required this.icon, required this.label});
+  const _NutritionTile({required this.svgAsset, required this.label, required this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -922,14 +1004,14 @@ class _NutritionTile extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFECE5),
+              color: Colors.transparent, 
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(icon, size: 24, color: const Color(0xFFFF6A45)),
+            child: SvgPicture.asset(svgAsset, width: 48, height: 48),
           ),
           const SizedBox(width: 12),
           Text(
-            label,
+            "$label $title",
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,

@@ -318,6 +318,16 @@ class IngredientsNeededScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
+                    // Create a lookup map for units from the main ingredients list
+                    final Map<String, String> ingredientUnits = {};
+                    for (var ing in ingredients) {
+                      final name = (ing['item'] ?? ing['name'] ?? ing['ingredient'] ?? '').toString().toLowerCase().trim();
+                      final unit = ing['unit']?.toString() ?? '';
+                      if (name.isNotEmpty && unit.isNotEmpty) {
+                        ingredientUnits[name] = unit;
+                      }
+                    }
+
                     // Existing steps processing logic
                     List<Map<String, dynamic>> stepsToPass = [];
                     if (steps.isNotEmpty) {
@@ -327,9 +337,18 @@ class IngredientsNeededScreen extends StatelessWidget {
                           final ingredientsList = step['ingredients_used'] as List;
                           processedIngredients = ingredientsList.map((ing) {
                             if (ing is Map<String, dynamic>) {
+                              final name = (ing['item'] ?? ing['name'] ?? ing['ingredient'] ?? 'Ingredient').toString();
+                              var unit = ing['unit']?.toString() ?? '';
+                              
+                              // Look up unit if missing
+                              if (unit.isEmpty) {
+                                unit = ingredientUnits[name.toLowerCase().trim()] ?? '';
+                              }
+
                               return {
-                                'item': ing['item'] ?? ing['name'] ?? ing['ingredient'] ?? 'Ingredient',
+                                'item': name,
                                 'quantity': ing['quantity']?.toString() ?? ing['qty']?.toString() ?? ing['amount']?.toString() ?? 'as needed',
+                                'unit': unit,
                                 'icon': ing['icon'] ?? '',
                                 'image_url': ing['image_url']?.toString() ?? ing['imageUrl']?.toString() ?? ing['image']?.toString() ?? '',
                               };
@@ -337,6 +356,7 @@ class IngredientsNeededScreen extends StatelessWidget {
                               return {
                                 'item': ing.toString(),
                                 'quantity': 'as needed',
+                                'unit': '',
                                 'icon': '',
                                 'image_url': '',
                               };
@@ -356,6 +376,7 @@ class IngredientsNeededScreen extends StatelessWidget {
                         return {
                           'item': ing['item'] ?? ing['name'] ?? ing['ingredient'] ?? 'Ingredient',
                           'quantity': ing['quantity']?.toString() ?? ing['qty']?.toString() ?? ing['amount']?.toString() ?? 'as needed',
+                          'unit': ing['unit']?.toString() ?? '',
                           'icon': ing['icon'] ?? '',
                           'image_url': ing['image_url']?.toString() ?? ing['imageUrl']?.toString() ?? ing['image']?.toString() ?? '',
                         };

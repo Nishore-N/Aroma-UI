@@ -167,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // bool _showAllCategories = false; // Deprecated
   int _visibleRecipeCount = 2;
   bool _isUserScrolling = false;
+  bool _showAllRecipes = false; // New state variable
   String _selectedCuisine = 'Any';
   
   final List<String> _cuisineOptions = [
@@ -199,11 +200,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.initState();
     debugPrint('HomeScreen initialized with phone number: ${widget.phoneNumber}');
     
-    // Initial fetch for "Any" cuisine
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<HomeProvider>(context, listen: false).loadExploreRecipes(cuisine: 'Any');
-    });
-
+    // Initial fetch for "Italian" cuisine as default popular choice
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   Provider.of<HomeProvider>(context, listen: false).loadExploreRecipes(cuisine: 'Italian');
+    // });
+    
     _pageController = PageController(
       viewportFraction: 0.85,
       initialPage: 0,
@@ -216,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _buttonController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
+      // ... (rest of init)
     );
     
     _buttonAnimation = Tween<double>(
@@ -586,15 +588,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         // Explore Recipes from API (via Provider)
         final exploreRecipes = provider.exploreRecipes;
         
-        // Filter explore recipes based on selection
-        final filteredExploreRecipes = _selectedCuisine == 'Any' 
-            ? exploreRecipes 
-            : exploreRecipes.where((r) => r.cuisine == _selectedCuisine).toList();
-            
-        final bool isExpanded = _expandedCuisines.contains(_selectedCuisine);
-        final displayRecipes = isExpanded
-            ? filteredExploreRecipes 
-            : filteredExploreRecipes.take(2).toList();
+        // Use banner recipes directly
+        final allRecipes = carouselRecipes;
+        // Show 5 items initially to ensure the masonry grid is balanced (filling the bottom left gap)
+        final displayRecipes = _showAllRecipes ? allRecipes : allRecipes.take(5).toList();
         
         return Scaffold(
           backgroundColor: Colors.white,
@@ -602,7 +599,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: RefreshIndicator(
               onRefresh: () async {
                 await provider.loadBannerRecipes();
-                await provider.loadExploreRecipes(cuisine: _selectedCuisine);
+                // await provider.loadExploreRecipes(cuisine: 'Italian'); // Refresh with explicit cuisine
               },
               color: const Color(0xFFFF724C),
               child: Container(
@@ -805,105 +802,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 0.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Preferred Cuisine',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                Text(
-                                  'Pull to refresh',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontStyle: FontStyle.italic,
-                                    color: Colors.grey[400],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(),
-                            child: Row(
-                              children: _cuisineOptions.map((cuisine) {
-                                final isSelected = _selectedCuisine == cuisine;
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 12.0),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      print('🔴 DEBUG: Cuisine Grid Item Tapped: $cuisine');
-                                      setState(() {
-                                        _selectedCuisine = cuisine;
-                                        // _showAllCategories = false; // Removed to persist state as requested
-                                      });
-                                      
-                                      // Fetch recipes for the selected cuisine
-                                      print('🔴 DEBUG: Calling Provider.loadExploreRecipes for $cuisine');
-                                      Provider.of<HomeProvider>(context, listen: false)
-                                          .loadExploreRecipes(cuisine: cuisine);
-                                    },
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 200),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? const Color(0xFFFF724C)
-                                            : Colors.grey[100],
-                                        borderRadius: BorderRadius.circular(30),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (isSelected) ...[
-                                            const Icon(
-                                              Icons.check,
-                                              color: Colors.white,
-                                              size: 16,
-                                            ),
-                                            const SizedBox(width: 8),
-                                          ],
-                                          Text(
-                                            cuisine,
-                                            style: TextStyle(
-                                              color: isSelected ? Colors.white : Colors.black87,
-                                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
+
                         ],
                       ),
                     ),
                     SliverPadding(
                       padding: const EdgeInsets.only(bottom: 0),
-                      sliver: SliverMasonryGrid.count(
+                       sliver: SliverMasonryGrid.count(
                         crossAxisCount: 2,
                         mainAxisSpacing: 12,
                         crossAxisSpacing: 12,
                         childCount: displayRecipes.length,
                         itemBuilder: (BuildContext context, int index) {
                           if (index >= displayRecipes.length) {
-                            return const SizedBox.shrink();
+                             return const SizedBox.shrink(); // Safety check
                           }
 
                           final recipe = displayRecipes[index];
@@ -917,60 +829,68 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         },
                       ),
                     ),
-
                     SliverToBoxAdapter(
-                      child: exploreRecipes.length <= 2 || _expandedCuisines.contains(_selectedCuisine)
-                        ? const SizedBox.shrink()
-                        : Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 4,
-                            ),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                onPressed: () async {
-                                  setState(() {
-                                    _expandedCuisines.add(_selectedCuisine);
-                                  });
-                                  
-                                  // Auto-scroll to bottom after showing all recipes
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    _scrollController.animateTo(
-                                      _scrollController.position.maxScrollExtent,
-                                      duration: const Duration(milliseconds: 1000),
-                                      curve: Curves.easeInOutCubic,
-                                    );
-                                  });
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.black,
-                                  backgroundColor: Colors.transparent,
-                                  side: BorderSide(
-                                    color: Colors.grey.withOpacity(0.35),
-                                    width: 1.1,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                    horizontal: 24,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(28),
+                      child: !_showAllRecipes && carouselRecipes.length > 5
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _showAllRecipes = true;
+                                });
+
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  _scrollController.animateTo(
+                                    _scrollController.position.maxScrollExtent,
+                                    duration: const Duration(milliseconds: 800),
+                                    curve: Curves.easeInOutCubic,
+                                  );
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(15.5),
+                              child: Container(
+                                height: 48,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2), // SVG fill-opacity="0.2"
+                                  borderRadius: BorderRadius.circular(15.5), // SVG rx="15.5"
+                                  border: Border.all(
+                                    color: const Color(0xFFD9D9D9), // SVG stroke="#D9D9D9"
+                                    width: 1,
                                   ),
                                 ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const <Widget>[
-                                    Text('Show More'),
-                                    SizedBox(width: 6),
-                                    Icon(Icons.arrow_forward, size: 18),
-                                  ],
+                                  children: [
+                                    const Text(
+                                      'Show All Categories',
+                                      style: TextStyle(
+                                        color: Color(0xFF212529), // SVG text fill
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    SvgPicture.asset(
+                                      'assets/images/arrow_forward.svg', // Assuming we might want to use SVG, but standard Icon is safer if asset missing. User provided SVG *code* for button, not asset. I'll use Icon.
+                                      // Actually user provided SVG for correct style. The arrow in SVG is simple.
+                                      // I will use Icon(Icons.arrow_forward) but match color.
+                                    ),
+                                  ]..removeLast()..add( // Hack to replace SvgPicture with Icon in list for safety if asset doesn't exist? No, just write Icon.
+                                    const Icon(
+                                      Icons.arrow_forward,
+                                      color: Colors.black,
+                                      size: 16,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          )
+                        : const SizedBox(height: 24),
                     ),
+
+
                   ],
                 ),
               ),

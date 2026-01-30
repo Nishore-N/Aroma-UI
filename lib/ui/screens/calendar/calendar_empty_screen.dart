@@ -491,16 +491,46 @@ class _CalendarEmptyScreenState extends State<CalendarEmptyScreen>
     try {
       print('🔄 [Calendar] Starting recipe generation with pantry items...');
       
-      // Fetch actual pantry items from remote server
-      final pantryItems = await _pantryListService.fetchPantryItems();
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final String? userId = authService.user?.mobile_no;
       
-      // Extract ingredient names from pantry items
+      // 1. Try Remote Fetch
+      List<Map<String, dynamic>> pantryItems = [];
+      try {
+         print("🔍 DEBUG: Fetching from REMOTE server for user: $userId...");
+         pantryItems = await _pantryListService.fetchPantryItems(userId: userId);
+         print('🥦 Found ${pantryItems.length} remote pantry items');
+      } catch (e) {
+         print("⚠️ Remote fetch failed: $e");
+      }
+      
+      // 2. Fallback to Local State if Remote Empty
+      if (pantryItems.isEmpty) {
+        print("🔄 Remote empty/failed. Checking local PantryState...");
+        final pantryState = Provider.of<PantryState>(context, listen: false);
+        
+        // Ensure local state is loaded
+        if (pantryState.items.isEmpty) {
+           await pantryState.loadPantry();
+        }
+        
+        if (pantryState.items.isNotEmpty) {
+           print("✅ IsUsing ${pantryState.items.length} items from local state");
+           pantryItems = pantryState.items.map((item) => {
+             'name': item.name,
+             'quantity': item.quantity,
+             'unit': item.unit,
+           }).toList();
+        }
+      }
+      
+      // Extract ingredient names
       final ingredients = pantryItems
           .map((item) => item['name']?.toString() ?? '')
           .where((name) => name.isNotEmpty)
           .toList();
       
-      print('🥦 Found ${ingredients.length} remote pantry items: $ingredients');
+      print('🥦 Final Ingredient List: $ingredients');
       
       if (ingredients.isEmpty) {
         if (mounted) {
@@ -515,7 +545,7 @@ class _CalendarEmptyScreenState extends State<CalendarEmptyScreen>
         return;
       }
       
-      // Navigate directly to CookingPreferenceScreen without loading animation
+      // Navigate directly to CookingPreferenceScreen
       Navigator.push(
         context,
         MaterialPageRoute(

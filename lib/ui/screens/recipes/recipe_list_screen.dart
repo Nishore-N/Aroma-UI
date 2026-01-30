@@ -46,13 +46,41 @@ class _RecipeListScreenState extends State<RecipeListScreen> {
     }
   }
 
+  // Queue for sequential image generation
+  final List<Future<void> Function()> _taskQueue = [];
+  bool _isProcessingQueue = false;
+
+  void _addToQueue(String key, Future<void> Function() task) {
+    _taskQueue.add(task);
+    _processQueue();
+  }
+
+  Future<void> _processQueue() async {
+    if (_isProcessingQueue) return;
+    _isProcessingQueue = true;
+
+    while (_taskQueue.isNotEmpty && mounted) {
+      final task = _taskQueue.removeAt(0);
+      try {
+        await task();
+        // Small delay to be nice to the network/server
+        await Future.delayed(const Duration(milliseconds: 200));
+      } catch (e) {
+        debugPrint('❌ [RecipeListScreen] Error processing queue task: $e');
+      }
+    }
+
+    _isProcessingQueue = false;
+  }
+
   Future<void> _generateFallbackImageForRecipe(String title, int index) async {
     try {
+      if (!mounted) return;
+      debugPrint('🖼️ [RecipeListScreen] Starting generation for: $title');
       final imageUrl = await RecipeDetailService.generateImage(title);
       if (imageUrl != null && mounted) {
         setState(() {
           // If the list has changed, we need to be careful with indexing
-          // But since we're using _allRecipes and it usually stays stable during initial gen:
           if (index < _allRecipes.length && _allRecipes[index].title == title) {
             _allRecipes[index].image = imageUrl;
           }
@@ -134,8 +162,13 @@ class _RecipeListScreenState extends State<RecipeListScreen> {
         }
 
         if (recipeImageUrl == null) {
-          debugPrint('🖼️ [RecipeListScreen] ❌ No image found for: $recipeTitle. Triggering local generation.');
-          _generateFallbackImageForRecipe(recipeTitle, _allRecipes.length);
+          debugPrint('🖼️ [RecipeListScreen] ❌ No image found for: $recipeTitle. Queueing local generation.');
+          // Use a capture of current index and title
+          final currentIndex = _allRecipes.length;
+          _addToQueue(
+            recipeTitle, 
+            () => _generateFallbackImageForRecipe(recipeTitle, currentIndex)
+          );
         } else {
           debugPrint('🖼️ [RecipeListScreen] ✅ Image found for: $recipeTitle -> $recipeImageUrl');
         }

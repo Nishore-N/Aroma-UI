@@ -10,7 +10,9 @@ import 'pantry_search_add_screen.dart';
 const Color kAccent = Color(0xFFFF7A4A);
 
 class PantryEmptyScreen extends StatelessWidget {
-  const PantryEmptyScreen({super.key});
+  final VoidCallback? onRefresh;
+
+  const PantryEmptyScreen({super.key, this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -137,127 +139,131 @@ class PantryEmptyScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-//
-// -------------------- BOTTOM SHEET --------------------
-//
+  //
+  // -------------------- BOTTOM SHEET --------------------
+  //
 
-void _showAddItemsBottomSheet(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
-    builder: (context) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            const Text(
-              "Hey there!",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              "How do you want to add items to your pantry?",
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
-            ),
-
-            const SizedBox(height: 28),
-
-            // -------- Search & Add ----------
-SizedBox(
-  width: double.infinity,
-  height: 54,
-  child: OutlinedButton(
-    style: OutlinedButton.styleFrom(
-      foregroundColor: kAccent,
-      side: const BorderSide(color: kAccent, width: 1.4),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+  void _showAddItemsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-    ),
-    onPressed: () {
-      Navigator.pop(context);
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const PantrySearchAddScreen(),
-        ),
-      );
-    },
-    child: const Text(
-      'Search & Add',
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-  ),
-),
-
-
-            const SizedBox(height: 14),
-
-            // -------- Upload / Take Photo ----------
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kAccent,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const IngredientEntryScreen(
-                        mode: ScanMode.pantry,
-                      ),
+              ),
+              const SizedBox(height: 24),
+
+              const Text(
+                "Hey there!",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                "How do you want to add items to your pantry?",
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // -------- Search & Add ----------
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: kAccent,
+                    side: const BorderSide(color: kAccent, width: 1.4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                  );
-                },
-                child: const Text(
-                  'Upload / Take a Photo',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PantrySearchAddScreen(),
+                      ),
+                    );
+                    // Refresh parent when returning
+                    onRefresh?.call();
+                  },
+                  child: const Text(
+                    'Search & Add',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
+
+
+              const SizedBox(height: 14),
+
+              // -------- Upload / Take Photo ----------
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kAccent,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const IngredientEntryScreen(
+                          mode: ScanMode.pantry,
+                        ),
+                      ),
+                    );
+                    // Refresh parent when returning
+                    onRefresh?.call();
+                  },
+                  child: const Text(
+                    'Upload / Take a Photo',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }

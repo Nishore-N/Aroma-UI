@@ -23,7 +23,7 @@ class PreparationSection extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 22),
+        const SizedBox(height: 15),
 
         /// ---- EMPTY STATE ----
         if (steps.isEmpty)
@@ -45,6 +45,7 @@ class PreparationSection extends StatelessWidget {
         else
           /// ---- LISTING STEPS ----
           ListView.separated(
+            padding: EdgeInsets.zero,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: steps.length,

@@ -17,7 +17,7 @@ class _PantryRootScreenState extends State<PantryRootScreen> {
   final PantryListService _service = PantryListService();
 
   bool loading = true;
-  bool isEmpty = true;
+
 
   @override
   void initState() {
@@ -30,37 +30,22 @@ class _PantryRootScreenState extends State<PantryRootScreen> {
       final authService = Provider.of<AuthService>(context, listen: false);
       final String? userId = authService.user?.mobile_no;
       
-      // First try to get remote pantry items
+      // Get remote pantry items
       final remoteItems = await _service.fetchPantryItems(userId: userId);
-      isEmpty = remoteItems.isEmpty;
       
-      // If remote is empty, check local pantry state as fallback
-      if (isEmpty && mounted) {
+      if (mounted) {
         final pantryState = Provider.of<PantryState>(context, listen: false);
-        await pantryState.loadPantry();
-        final localItems = pantryState.items;
-        isEmpty = localItems.isEmpty;
-        debugPrint("📦 Remote pantry empty, checking local: ${localItems.length} items");
+        // Always update state with what we got (even if empty) to ensure sync
+        await pantryState.setRemoteItems(remoteItems);
       }
     } catch (e) {
       debugPrint("❌ Pantry root error: $e");
-      
-      // Fallback to local pantry state
-      if (mounted) {
-        try {
-          final pantryState = Provider.of<PantryState>(context, listen: false);
-          await pantryState.loadPantry();
-          final localItems = pantryState.items;
-          isEmpty = localItems.isEmpty;
-          debugPrint("📦 Using local pantry fallback: ${localItems.length} items");
-        } catch (localError) {
-          debugPrint("❌ Local pantry fallback failed: $localError");
-          isEmpty = true;
-        }
-      }
+      // No local fallback as requested
     }
 
-    setState(() => loading = false);
+    if (mounted) {
+      setState(() => loading = false);
+    }
   }
 
   @override

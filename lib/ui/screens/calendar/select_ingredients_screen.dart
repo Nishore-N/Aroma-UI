@@ -12,6 +12,7 @@ import '../../../data/services/home_recipe_service.dart';
 import '../../../core/utils/item_image_resolver.dart';
 import '../../../ui/widgets/ingredient_row.dart';
 import '../../widgets/cooking_loader.dart';
+import '../../../core/services/auth_service.dart';
 
 
 const Color kAccent = Color(0xFFFF7A4A);
@@ -60,24 +61,60 @@ class _SelectIngredientsScreenState extends State<SelectIngredientsScreen> {
     });
 
     try {
-      print("🔍 DEBUG: Starting to load pantry ingredients from REMOTE server...");
+      print("🔍 DEBUG: Starting to load pantry ingredients...");
       
-      // Load from remote server using PantryListService
-      final remotePantryItems = await _pantryListService.fetchPantryItems();
-      print("🔍 DEBUG: Got ${remotePantryItems.length} items from remote server");
-      print("🔍 DEBUG: Remote items: ${remotePantryItems.map((e) => e['name']).toList()}");
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final String? userId = authService.user?.mobile_no;
       
+      // 1. Try Remote Load
+      List<Map<String, dynamic>> remotePantryItems = [];
+      try {
+        print("🔍 DEBUG: Fetching from REMOTE server for user: $userId...");
+        remotePantryItems = await _pantryListService.fetchPantryItems(userId: userId);
+        print("🔍 DEBUG: Got ${remotePantryItems.length} items from remote server");
+      } catch (e) {
+        print("⚠️ Remote fetch failed: $e, falling back to local");
+      }
+
+      // 2. If Remote Empty/Failed, Try Local
+      if (remotePantryItems.isEmpty) {
+        print("🔄 Remote empty/failed. Trying to load from local PantryState...");
+        final pantryState = Provider.of<PantryState>(context, listen: false);
+        
+        // Ensure local state is fresh
+        if (pantryState.items.isEmpty) {
+             await pantryState.loadPantry();
+        }
+        
+        if (pantryState.items.isNotEmpty) {
+           print("✅ Using ${pantryState.items.length} items from local state");
+           remotePantryItems = pantryState.items.map((item) => {
+             'name': item.name,
+             'quantity': item.quantity,
+             'unit': item.unit,
+             'imageUrl': item.imageUrl,
+           }).toList();
+        }
+      }
+
       final pantryState = Provider.of<PantryState>(context, listen: false);
       
-      // Convert remote pantry ingredients to _Ingredient objects with image URLs
+      // Convert to _Ingredient objects
       final ingredients = remotePantryItems.map((item) {
         final name = item['name']?.toString() ?? '';
+        
+        // Try getting image from item itself, then state, then fallback
+        String? imgUrl = item['imageUrl'] as String?;
+        if (imgUrl == null || imgUrl.isEmpty) {
+          imgUrl = pantryState.getItemImage(name);
+        }
+
         return _Ingredient(
           name: name,
           category: CategoryEngine.getCategory(name),
           subtitle: CategoryEngine.getCategory(name),
           icon: _getIconForIngredient(name),
-          imageUrl: pantryState.getItemImage(name) ?? item['imageUrl'] as String?, 
+          imageUrl: imgUrl, 
         );
       }).toList();
 
@@ -87,42 +124,16 @@ class _SelectIngredientsScreenState extends State<SelectIngredientsScreen> {
       });
 
       // Proactively trigger generation for any missing images
-      final names = ingredients.map((e) => e.name).toList();
-      PantryImageService().generateMissingImages(names);
+      if (ingredients.isNotEmpty) {
+        final names = ingredients.map((e) => e.name).toList();
+        PantryImageService().generateMissingImages(names);
+      }
 
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      print("❌ Error loading REMOTE pantry ingredients: $e");
-      
-      // Fallback: Try loading from local PantryState as backup
-      try {
-        print("🔄 FALLBACK: Trying to load from local PantryState...");
-        final pantryState = Provider.of<PantryState>(context, listen: false);
-        await pantryState.loadPantry();
-        
-        final fallbackIngredients = pantryState.items.map((item) => _Ingredient(
-          name: item.name,
-          category: CategoryEngine.getCategory(item.name),
-          subtitle: CategoryEngine.getCategory(item.name),
-          icon: _getIconForIngredient(item.name),
-          imageUrl: item.imageUrl,
-        )).toList();
-
-        setState(() {
-          _allIngredients = fallbackIngredients;
-          _isLoading = false;
-        });
-        
-        print("🔍 DEBUG: Loaded ${fallbackIngredients.length} ingredients from LOCAL fallback");
-      } catch (fallbackError) {
-        print("❌ Fallback also failed: $fallbackError");
-        setState(() {
-          _allIngredients = [];
-          _isLoading = false;
-        });
-      }
+      print("❌ Error loading pantry ingredients: $e");
     }
   }
 

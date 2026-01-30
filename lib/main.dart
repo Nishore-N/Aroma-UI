@@ -174,7 +174,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'Aroma',
+      title: 'Aroma Chefs',
       debugShowCheckedModeBanner: false,
 
       theme: AppTheme.lightTheme,

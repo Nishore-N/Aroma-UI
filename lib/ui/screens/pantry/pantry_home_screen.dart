@@ -99,11 +99,29 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
       final String? userId = authService.user?.mobile_no;
       
       final pantryItems = await _pantryListService.fetchPantryItems(userId: userId);
+      
+      // Fallback: If remote is empty, check local state to handle race conditions
+      List<Map<String, dynamic>> finalItems = pantryItems;
+      if (pantryItems.isEmpty) {
+         final pantryState = Provider.of<PantryState>(context, listen: false);
+         if (pantryState.items.isNotEmpty) {
+             debugPrint("⚠️ API returned empty, using local state fallback");
+             finalItems = pantryState.items.map((e) => {
+                 'name': e.name,
+                 'quantity': e.quantity,
+                 'unit': e.unit,
+                 'imageUrl': e.imageUrl,
+                 'price': 0.0,
+                 'source': 'manual',
+             }).toList();
+         }
+      }
+
       setState(() {
-        _remotePantryItems = pantryItems;
+        _remotePantryItems = finalItems;
         _isLoading = false;
       });
-      print('📦 Loaded ${pantryItems.length} remote pantry items: ${pantryItems.map((item) => item['name']).toList()}');
+      print('📦 Loaded ${finalItems.length} pantry items (Source: ${pantryItems.isEmpty ? "Local" : "Remote"})');
       
       // Trigger image generation for missing items
       _generateMissingImages(pantryItems);
@@ -232,7 +250,9 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
     }
 
     if (pantryItems.isEmpty) {
-      return const PantryEmptyScreen();
+      return PantryEmptyScreen(
+        onRefresh: _loadRemotePantryItems,
+      );
     }
 
     return Scaffold(

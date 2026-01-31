@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../state/pantry_state.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../data/services/shopping_list_service.dart';
 import '../../../data/services/pantry_list_service.dart';
+import '../../../data/services/pantry_crud_service.dart';
 import '../../../data/services/pantry_image_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/utils/category_engine.dart';
@@ -34,7 +36,6 @@ class PantryHomeScreen extends StatefulWidget {
 class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBindingObserver {
   final PantryListService _pantryListService = PantryListService();
   final PantryImageService _imageService = PantryImageService();
-  List<Map<String, dynamic>> _remotePantryItems = [];
   bool _isLoading = false;
   
   // Selection Mode State
@@ -98,33 +99,19 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
       final authService = Provider.of<AuthService>(context, listen: false);
       final String? userId = authService.user?.mobile_no;
       
-      final pantryItems = await _pantryListService.fetchPantryItems(userId: userId);
-      
-      // Fallback: If remote is empty, check local state to handle race conditions
-      List<Map<String, dynamic>> finalItems = pantryItems;
-      if (pantryItems.isEmpty) {
-         final pantryState = Provider.of<PantryState>(context, listen: false);
-         if (pantryState.items.isNotEmpty) {
-             debugPrint("⚠️ API returned empty, using local state fallback");
-             finalItems = pantryState.items.map((e) => {
-                 'name': e.name,
-                 'quantity': e.quantity,
-                 'unit': e.unit,
-                 'imageUrl': e.imageUrl,
-                 'price': 0.0,
-                 'source': 'manual',
-             }).toList();
-         }
-      }
+      final pantryState = Provider.of<PantryState>(context, listen: false);
+      await pantryState.syncFromRemote(userId);
 
       setState(() {
-        _remotePantryItems = finalItems;
         _isLoading = false;
       });
-      print('📦 Loaded ${finalItems.length} pantry items (Source: ${pantryItems.isEmpty ? "Local" : "Remote"})');
+      print('📦 Pantry refreshed from remote (Items: ${pantryState.items.length})');
       
       // Trigger image generation for missing items
-      _generateMissingImages(pantryItems);
+      _generateMissingImages(pantryState.items.map((e) => {
+        'name': e.name,
+        'imageUrl': e.imageUrl,
+      }).toList());
     } catch (e) {
       print('❌ Error loading remote pantry items: $e');
       setState(() {
@@ -168,30 +155,25 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
     return prefs.getString('user_phone');
   }
 
-  // Get pantry items from remote server
+  // Get pantry items from state
   List<Map<String, dynamic>> get pantryItems {
     final pantryState = Provider.of<PantryState>(context, listen: false);
-    return _remotePantryItems.map((item) {
-      final name = item['name']?.toString() ?? '';
+    return pantryState.items.map((item) {
+      final name = item.name;
       return {
         'name': name,
-        'quantity': (item['quantity'] as num?)?.toDouble() ?? 1.0,
-        'unit': item['unit']?.toString() ?? 'pcs',
-        'imageUrl': pantryState.getItemImage(name) ?? '', 
-        'price': (item['price'] as num?)?.toDouble() ?? 0.0,
-        'source': item['source']?.toString() ?? 'manual',
-        '_id': item['_id']?.toString() ?? '',
+        'quantity': item.quantity,
+        'unit': item.unit,
+        'imageUrl': (item.imageUrl != null && item.imageUrl!.isNotEmpty) 
+            ? item.imageUrl 
+            : (pantryState.getItemImage(name) ?? ''), 
+        'price': item.price ?? 0.0,
+        'source': item.source ?? 'manual',
+        '_id': item.id ?? '',
       };
     }).toList();
   }
 
-  // Get low stock item count
-  int get lowStockItemCount {
-    return pantryItems.where((item) {
-      final qty = item['quantity'] is num ? (item['quantity'] as num).toDouble() : 0;
-      return qty > 0 && qty <= 3;
-    }).length;
-  }
 
   // ---------- CATEGORY ----------
   Map<String, List<Map<String, dynamic>>> _getGroupedItems(List<Map<String, dynamic>> items) {
@@ -298,17 +280,19 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
 
       body: Consumer<PantryState>(
         builder: (context, pantryState, child) {
-          // Re-calculate the pantry items with the latest image URLs from state
-          final livePantryItems = _remotePantryItems.map((item) {
-            final name = item['name']?.toString() ?? '';
+          // Use state directly
+          final livePantryItems = pantryState.items.map((item) {
+            final name = item.name;
             return {
               'name': name,
-              'quantity': (item['quantity'] as num?)?.toDouble() ?? 1.0,
-              'unit': item['unit']?.toString() ?? 'pcs',
-              'imageUrl': pantryState.getItemImage(name) ?? '', 
-              'price': (item['price'] as num?)?.toDouble() ?? 0.0,
-              'source': item['source']?.toString() ?? 'manual',
-              '_id': item['_id']?.toString() ?? '',
+              'quantity': item.quantity,
+              'unit': item.unit,
+              'imageUrl': (item.imageUrl != null && item.imageUrl!.isNotEmpty) 
+                  ? item.imageUrl 
+                  : (pantryState.getItemImage(name) ?? ''), 
+              'price': item.price ?? 0.0,
+              'source': item.source ?? 'manual',
+              '_id': item.id ?? '',
             };
           }).toList();
 
@@ -384,7 +368,7 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
                           );
                         },
                         child: _infoCard(
-                          lowStockItemCount.toString(),
+                          pantryState.lowStockCount.toString(),
                           "items",
                           "in low stock",
                         ),
@@ -658,54 +642,48 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
     );
   }
 
-// Helper method to build the item image
 Widget _buildItemImage(Map<String, dynamic> item) {
-  final imageUrl = item['imageUrl']?.toString();
   final itemName = item['name']?.toString() ?? '';
+  final imageUrl = item['imageUrl']?.toString() ?? '';
   
-  print('🖼️ DEBUG: Building image for $itemName, imageUrl: $imageUrl');
+  if (kDebugMode) {
+    print('🖼️ [PantryHome] Building image for $itemName, imageUrl: $imageUrl');
+  }
   
-  // If we have a valid imageUrl, try to use network image
-  if (imageUrl != null && imageUrl.isNotEmpty && !imageUrl.contains('temp_pantry')) {
-    print('🖼️ DEBUG: Using network image for $itemName');
+  // If we have a valid network URL (starts with http)
+  if (imageUrl.startsWith('http')) {
     return Image.network(
       imageUrl,
       width: 120,
       height: 120,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
-        print('❌ DEBUG: Network image failed for $itemName: $error, falling back to ItemImageResolver');
+        debugPrint('❌ [PantryHome] Network image failed for $itemName, using fallback');
         return ItemImageResolver.getImageWidget(
           itemName,
           size: 120,
-          imageUrl: null, // Don't pass the failed imageUrl
+          imageUrl: null,
         );
       },
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
-        return Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: Colors.grey.shade100,
-          child: Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                  : null,
-            ),
+        return Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            value: loadingProgress.expectedTotalBytes != null
+                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                : null,
           ),
         );
       },
     );
   }
   
-  // Otherwise, use the ItemImageResolver which handles local assets and backend generation
-  print('🖼️ DEBUG: Using ItemImageResolver for $itemName');
+  // Otherwise, use the ItemImageResolver
   return ItemImageResolver.getImageWidget(
     itemName,
     size: 120,
-    imageUrl: imageUrl, // Pass imageUrl (might be null or fallback)
+    imageUrl: imageUrl.isEmpty ? null : imageUrl,
   );
 }
 
@@ -785,6 +763,9 @@ Widget _buildItemImage(Map<String, dynamic> item) {
     );
   }
 
+
+  // ---------------- CLEAR ALL FUNCTIONALITY ----------------
+
   Future<void> _clearAllPantryItems() async {
     // Show loading dialog
     showDialog(
@@ -817,17 +798,12 @@ Widget _buildItemImage(Map<String, dynamic> item) {
         final pantryState = Provider.of<PantryState>(context, listen: false);
         await pantryState.clearAllItems();
         
-        // Clear remote items cache
-        setState(() {
-          _remotePantryItems.clear();
-        });
-        
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Pantry cleared successfully!'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 1),
           ),
         );
       } else {
@@ -836,7 +812,7 @@ Widget _buildItemImage(Map<String, dynamic> item) {
           const SnackBar(
             content: Text('Failed to clear pantry items. Please try again.'),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 1),
           ),
         );
       }
@@ -849,7 +825,7 @@ Widget _buildItemImage(Map<String, dynamic> item) {
         SnackBar(
           content: Text('Error clearing pantry: $e'),
           backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 1),
         ),
       );
     }
@@ -904,7 +880,7 @@ Widget _buildItemImage(Map<String, dynamic> item) {
       final String? userId = authService.user?.mobile_no;
       
       // Find the full item objects for the selected names
-      final itemsToDelete = _remotePantryItems
+      final itemsToDelete = pantryItems
           .where((item) => _selectedItems.contains(item['name']))
           .toList();
 
@@ -918,7 +894,6 @@ Widget _buildItemImage(Map<String, dynamic> item) {
         await pantryState.removeItems(_selectedItems.toList());
         
         setState(() {
-          _remotePantryItems.removeWhere((item) => _selectedItems.contains(item['name']));
           _selectedItems.clear();
           _isSelectionMode = false;
         });
@@ -927,6 +902,7 @@ Widget _buildItemImage(Map<String, dynamic> item) {
           const SnackBar(
             content: Text('Items deleted successfully'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 1),
           ),
         );
       } else {
@@ -934,13 +910,14 @@ Widget _buildItemImage(Map<String, dynamic> item) {
           const SnackBar(
             content: Text('Failed to delete items'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 1),
           ),
         );
       }
     } catch (e) {
       Navigator.pop(context); // Close loading
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting items: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Error deleting items: $e'), backgroundColor: Colors.red, duration: const Duration(seconds: 1)),
       );
     }
   }

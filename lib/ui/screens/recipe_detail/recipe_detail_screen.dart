@@ -105,6 +105,59 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       // Only generate images if we aren't fetching
       _checkAndGenerateImages();
     }
+    
+    // Always fetch similar recipes for the bottom section
+    _fetchSimilarRecipes();
+  }
+
+  Future<void> _fetchSimilarRecipes() async {
+    try {
+      debugPrint('🚀 [RecipeDetailScreen] Initiating fetchSimilarRecipes call...');
+      final recipes = await RecipeDetailService.fetchSimilarRecipes();
+      debugPrint('📥 [RecipeDetailScreen] Recipes received count: ${recipes.length}');
+      if (mounted) {
+        setState(() {
+          _similarRecipeData = recipes;
+          debugPrint('✅ [RecipeDetailScreen] State updated with similar recipes');
+        });
+        
+        // Start generating images for recipes that lack them
+        _generateSimilarRecipesImages();
+      }
+    } catch (e) {
+      debugPrint('❌ [RecipeDetailScreen] Error fetching similar recipes: $e');
+    }
+  }
+
+  Future<void> _generateSimilarRecipesImages() async {
+    for (var i = 0; i < _similarRecipeData.length; i++) {
+      if (!mounted) break;
+      
+      final recipe = _similarRecipeData[i];
+      final title = recipe["recipe_name"] ?? recipe["name"] ?? recipe["title"] ?? "";
+      final image = recipe["recipe_image_url"] ?? recipe["image_url"] ?? recipe["image"] ?? "";
+      
+      if (title.isNotEmpty && image.isEmpty) {
+        debugPrint('🖼️ [RecipeDetailScreen] Generating image for similar recipe index $i: $title');
+        try {
+          final generatedUrl = await RecipeDetailService.generateImage(title);
+          debugPrint('🖼️ [RecipeDetailScreen] Generation result for $title: $generatedUrl');
+          if (generatedUrl != null && mounted) {
+            setState(() {
+              _similarRecipeData[i] = {
+                ..._similarRecipeData[i],
+                'recipe_image_url': generatedUrl,
+              };
+              debugPrint('✅ [RecipeDetailScreen] Similar recipe at index $i updated with image URL');
+            });
+          }
+        } catch (e) {
+          debugPrint('❌ [RecipeDetailScreen] Error generating image for $title: $e');
+        }
+      } else if (image.isNotEmpty) {
+        debugPrint('🖼️ [RecipeDetailScreen] Similar recipe at index $i already has image: $image');
+      }
+    }
   }
 
   Future<void> _fetchFullRecipeDetails(String id) async {
@@ -440,6 +493,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         "rating": 5,
         "comment": "Absolutely loved this $recipeName! The flavors were perfectly balanced and it was so easy to make. Will definitely be making this again.",
         "timeAgo": "2 days ago",
+        "imageUrl": "https://i.pravatar.cc/150?img=5",
         "isAI": false,
       },
       {
@@ -447,6 +501,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         "rating": 4,
         "comment": "Great recipe for $recipeName! I added a little extra spice and it turned out amazing. My family loved it.",
         "timeAgo": "1 week ago",
+        "imageUrl": "https://i.pravatar.cc/150?img=11",
         "isAI": false,
       },
       {
@@ -454,6 +509,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         "rating": 5,
         "comment": "This $recipeName recipe is now my go-to! Perfect for dinner parties and always gets compliments. Thank you for sharing!",
         "timeAgo": "2 weeks ago",
+        "imageUrl": "https://i.pravatar.cc/150?img=9",
         "isAI": false,
       }
     ];
@@ -462,6 +518,19 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   void _checkAndGenerateImages() {
     // Generate images sequentially (one by one) instead of all at once
     _generateImagesSequentially();
+  }
+
+  void _addReview(String comment) {
+    setState(() {
+      _reviewData.insert(0, {
+        "name": "You",
+        "rating": 5, // Default rating for now
+        "comment": comment,
+        "timeAgo": "Just now",
+        "imageUrl": "https://i.pravatar.cc/150?img=12", // Default user image
+        "isAI": false,
+      });
+    });
   }
 
   Future<void> _generateImagesSequentially() async {
@@ -553,6 +622,18 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     });
   }
 
+
+
+  Widget _sectionDivider() {
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        Divider(thickness: 1, color: Colors.grey.shade200),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
   Widget _content() {
     return Consumer<PantryState>(
       builder: (_, pantryState, __) {
@@ -567,13 +648,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
+            const SizedBox(height: 5),
             Text(_recipeName ?? widget.title,
                 style:
                     const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.black)),
-            const SizedBox(height: 12),
-
-            const SizedBox(height: 12),
+            const SizedBox(height: 22),
             
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -670,7 +749,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             const SizedBox(height: 30),
 
             const Text("Nutrition per serving",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black)),
 
             const SizedBox(height: 20),
 
@@ -697,8 +776,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ],
             ),
 
-            const SizedBox(height: 35),
-
+            _sectionDivider(),
+            
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -724,7 +803,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ),
             ),
 
-            const SizedBox(height: 35),
+            _sectionDivider(),
 
             Container(
               key: _cookwareKey,
@@ -734,24 +813,46 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ),
             ),
 
-            const SizedBox(height: 35),
+            _sectionDivider(),
 
             Container(
               key: _preparationKey,
               child: PreparationSection(steps: _cookingSteps),
             ),
 
-            const SizedBox(height: 35),
+            _sectionDivider(),
 
-            ReviewSection(
-              reviews: _reviewData,
-              recipeName: widget.title,
+            if (_reviewData != null)
+              ReviewSection(
+                reviews: _reviewData!,
+                recipeName: _recipeName ?? widget.title,
+                onAddReview: _addReview,
+              ),
+
+
+            _sectionDivider(),
+
+            SimilarRecipesSection(
+              recipes: _similarRecipeData,
+              onRecipeTap: (recipe) {
+                // Navigate to new recipe details screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => RecipeDetailScreen(
+                      recipeId: recipe['_id'] ?? recipe['id'],
+                      image: recipe['recipe_image_url'] ?? recipe['image_url'] ?? recipe['image'] ?? '',
+                      title: recipe['recipe_name'] ?? recipe['name'] ?? recipe['title'] ?? 'Unknown Dish',
+                      ingredients: const [], // Will be fetched by ID
+                      cuisine: recipe['cuisine'] ?? 'Indian',
+                      cookTime: (recipe['cooking_time'] ?? recipe['cook_time'] ?? '30-40 min').toString(),
+                      servings: 4,
+                      fullRecipeData: recipe, // Pass what we have
+                    ),
+                  ),
+                );
+              },
             ),
-
-
-            const SizedBox(height: 35),
-
-            SimilarRecipesSection(recipes: _similarRecipeData),
           ],
         );
       },
@@ -826,6 +927,36 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             expandedHeight: 420,
             elevation: 0,
             backgroundColor: Colors.transparent,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 20, top: 8, bottom: 8), // Adjust padding for positioning
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: SvgPicture.asset(
+                  "assets/images/icons/back_arrow.svg",
+                  width: 48,
+                  height: 48,
+                ),
+              ),
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 20, top: 8, bottom: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      isFavorite = !isFavorite;
+                    });
+                  },
+                  child: SvgPicture.asset(
+                    isFavorite 
+                      ? "assets/images/icons/heart_filled.svg" 
+                      : "assets/images/icons/heart.svg",
+                    width: 48,
+                    height: 48,
+                  ),
+                ),
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Builder(
                 builder: (context) {
@@ -843,15 +974,23 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 }
               ),
             ),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(30),
+              child: Container(
+                height: 30,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(30),
+                  ),
+                ),
+              ),
+            ),
           ),
           SliverToBoxAdapter(
-            child: Material(
+            child: Container(
               color: Colors.white,
-              elevation: 12,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(40),
-                topRight: Radius.circular(40),
-              ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(26, 0, 26, 60),
                 child: _content(),

@@ -5,12 +5,14 @@ class IngredientThumbnail extends StatelessWidget {
   final String ingredientName;
   final double size;
   final String? imageUrl;
+  final String? assetFallbackPath;
 
   const IngredientThumbnail({
     super.key,
     required this.ingredientName,
     this.size = 56,
     this.imageUrl,
+    this.assetFallbackPath,
   });
 
   @override
@@ -48,6 +50,19 @@ class IngredientThumbnail extends StatelessWidget {
   }
 
   Widget _buildFallback() {
+    if (assetFallbackPath != null && assetFallbackPath!.isNotEmpty) {
+      return Image.asset(
+        assetFallbackPath!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildIconFallback(),
+      );
+    }
+    return _buildIconFallback();
+  }
+
+  Widget _buildIconFallback() {
     return Center(
       child: Icon(
         Icons.restaurant_menu,
@@ -64,5 +79,6 @@ class IngredientImageThumbnail extends IngredientThumbnail {
     required super.ingredientName,
     super.size,
     super.imageUrl,
+    super.assetFallbackPath,
   });
 }

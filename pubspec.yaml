@@ -90,6 +90,7 @@ flutter:
     - assets/images/recipes/
     - assets/images/nutrition/
     - assets/images/reviews/
+    - assets/images/icons/
     - assets/aroma_splash.json
     - assets/Vegetable_Scan.json
     - assets/top_100_grocery_emoji_mapping.json

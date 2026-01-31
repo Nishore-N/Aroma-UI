@@ -30,13 +30,10 @@ class _PantryRootScreenState extends State<PantryRootScreen> {
       final authService = Provider.of<AuthService>(context, listen: false);
       final String? userId = authService.user?.mobile_no;
       
-      // Get remote pantry items
-      final remoteItems = await _service.fetchPantryItems(userId: userId);
-      
       if (mounted) {
         final pantryState = Provider.of<PantryState>(context, listen: false);
-        // Always update state with what we got (even if empty) to ensure sync
-        await pantryState.setRemoteItems(remoteItems);
+        // Always sync from server to ensure state is up to date
+        await pantryState.syncFromRemote(userId);
       }
     } catch (e) {
       debugPrint("❌ Pantry root error: $e");

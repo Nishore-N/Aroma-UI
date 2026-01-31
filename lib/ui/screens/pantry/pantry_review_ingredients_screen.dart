@@ -508,7 +508,7 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
 
   /// 👉 Store price, quantity & metrics separately (clean approach)
   final Map<String, double> _priceMap = {};
-  final Map<String, int> _quantityMap = {};
+  final Map<String, double> _quantityMap = {};
   final Map<String, String> _imageMap = {}; // Store image URLs
 
   bool _isLoading = true;
@@ -546,7 +546,7 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
         final id = DateTime.now().microsecondsSinceEpoch.toString();
 
         _priceMap[id] = double.tryParse(item["price"]?.toString() ?? "0") ?? 0.0;
-        _quantityMap[id] = int.tryParse(item["quantity"]?.toString() ?? "1") ?? 1;
+        _quantityMap[id] = double.tryParse(item["quantity"]?.toString() ?? "1.0") ?? 1.0;
         _imageMap[id] = item["imageURL"]?.toString() ?? item["image_url"]?.toString() ?? ""; // Store image URL
         debugPrint("🎯 [ReviewScreen] Item keys for ${item["item"]}: ${item.keys.toList()}");
         debugPrint("🎯 [ReviewScreen] Image mapping for ${item["item"]}: ${_imageMap[id]}");
@@ -582,7 +582,7 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
   Future<void> _showAddIngredientDialog() async {
     final nameController = TextEditingController();
     final metricController = TextEditingController();
-    final quantityController = TextEditingController(text: "1");
+    final quantityController = TextEditingController(text: "1.0");
 
     await showDialog(
       context: context,
@@ -601,10 +601,49 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
               decoration: const InputDecoration(labelText: "Metric"),
               keyboardType: TextInputType.text,
             ),
-            TextField(
-              controller: quantityController,
-              decoration: const InputDecoration(labelText: "Quantity"),
-              keyboardType: TextInputType.number,
+            const SizedBox(height: 16),
+            const Text("Quantity", style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (context, setDialogState) {
+                double qty = double.tryParse(quantityController.text) ?? 1.0;
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFF7A4A)),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove, color: Color(0xFFFF7A4A)),
+                        onPressed: () {
+                          if (qty > 0.5) {
+                            qty -= 0.5;
+                            quantityController.text = qty.toStringAsFixed(1);
+                            setDialogState(() {});
+                          }
+                        },
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            qty.toStringAsFixed(1),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add, color: Color(0xFFFF7A4A)),
+                        onPressed: () {
+                          qty += 0.5;
+                          quantityController.text = qty.toStringAsFixed(1);
+                          setDialogState(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -625,7 +664,7 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
                     match: 100,
                   ));
                   _priceMap[id] = 0.0; // Price not used in pantry
-                  _quantityMap[id] = int.tryParse(quantityController.text) ?? 1;
+                  _quantityMap[id] = double.tryParse(quantityController.text) ?? 1.0;
                 });
               }
               Navigator.pop(context);
@@ -645,7 +684,7 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
     final metricController = TextEditingController(
         text: "");
     final quantityController = TextEditingController(
-        text: _quantityMap[ingredient.id]?.toString() ?? "1");
+        text: _quantityMap[ingredient.id]?.toStringAsFixed(1) ?? "1.0");
 
     await showDialog(
       context: context,
@@ -664,10 +703,49 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
               decoration: const InputDecoration(labelText: "Metric"),
               keyboardType: TextInputType.text,
             ),
-            TextField(
-              controller: quantityController,
-              decoration: const InputDecoration(labelText: "Quantity"),
-              keyboardType: TextInputType.number,
+            const SizedBox(height: 16),
+            const Text("Quantity", style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (context, setDialogState) {
+                double qty = double.tryParse(quantityController.text) ?? 1.0;
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFF7A4A)),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove, color: Color(0xFFFF7A4A)),
+                        onPressed: () {
+                          if (qty > 0.5) {
+                            qty -= 0.5;
+                            quantityController.text = qty.toStringAsFixed(1);
+                            setDialogState(() {});
+                          }
+                        },
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            qty.toStringAsFixed(1),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add, color: Color(0xFFFF7A4A)),
+                        onPressed: () {
+                          qty += 0.5;
+                          quantityController.text = qty.toStringAsFixed(1);
+                          setDialogState(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -690,7 +768,7 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
                       match: ingredient.match,
                     );
                     _priceMap[ingredient.id!] = 0.0; // Price not used in pantry
-                    _quantityMap[ingredient.id!] = int.tryParse(quantityController.text) ?? 1;
+                    _quantityMap[ingredient.id!] = double.tryParse(quantityController.text) ?? 1.0;
                   }
                 });
               }
@@ -906,6 +984,9 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
                     message = 'No items were added';
                   }
                   
+                  // 🔄 Refresh pantry list from server
+                  await pantryState.syncFromRemote(userId);
+
                   // Close loading indicator
                   if (mounted) {
                     Navigator.pop(context); // Close loading dialog
@@ -915,7 +996,7 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
                       SnackBar(
                         content: Text(message),
                         backgroundColor: Colors.green,
-                        duration: const Duration(seconds: 3),
+                        duration: const Duration(seconds: 1),
                       ),
                     );
                     
@@ -934,6 +1015,7 @@ class _ScannedIngredientsListScreenState extends State<_ScannedIngredientsListSc
                       const SnackBar(
                         content: Text('Failed to add items to pantry'),
                         backgroundColor: Colors.red,
+                        duration: const Duration(seconds: 1),
                       ),
                     );
                   }

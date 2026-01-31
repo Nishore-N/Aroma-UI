@@ -44,7 +44,7 @@ class _IngredientEntryScreenState extends State<IngredientEntryScreen> {
                 Text('Opening camera...'),
               ],
             ),
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 1),
             backgroundColor: Colors.black87,
           ),
         );
@@ -137,7 +137,11 @@ class _IngredientEntryScreenState extends State<IngredientEntryScreen> {
         // Items were already saved in the review screen
         if (mounted) {
            ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Items added to pantry'), backgroundColor: Colors.green),
+             const SnackBar(
+               content: Text('Items added to pantry'),
+               backgroundColor: Colors.green,
+               duration: Duration(seconds: 1),
+             ),
            );
            widget.onItemsAdded?.call();
            Navigator.pop(context, true);
@@ -154,13 +158,19 @@ class _IngredientEntryScreenState extends State<IngredientEntryScreen> {
         if (mounted) {
           if (success) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Items added to pantry')),
+              const SnackBar(
+                content: Text('Items added to pantry'),
+                duration: Duration(seconds: 1),
+              ),
             );
             widget.onItemsAdded?.call();
             if (mounted) Navigator.pop(context, addedItems);
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Failed to save items')),
+              const SnackBar(
+                content: Text('Failed to save items'),
+                duration: Duration(seconds: 1),
+              ),
             );
           }
         }
@@ -169,7 +179,10 @@ class _IngredientEntryScreenState extends State<IngredientEntryScreen> {
       debugPrint("Error processing image: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to process image')),
+          const SnackBar(
+            content: Text('Failed to process image'),
+            duration: Duration(seconds: 1),
+          ),
         );
       }
     } finally {

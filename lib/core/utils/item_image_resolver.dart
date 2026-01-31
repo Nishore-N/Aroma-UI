@@ -41,7 +41,8 @@ class ItemImageResolver {
     return IngredientImageThumbnail(
       ingredientName: itemName,
       size: size,
-      imageUrl: imageUrl, // Pass the imageUrl to the thumbnail widget
+      imageUrl: imageUrl, 
+      assetFallbackPath: getImage(itemName), // 🔥 Pass local asset path as fallback
     );
   }
 

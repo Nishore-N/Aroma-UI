@@ -14,6 +14,51 @@ class RecipeDetailService {
     ),
   );
   
+  // Fetch a list of similar recipes for the "More recipes like this" section
+  static Future<List<Map<String, dynamic>>> fetchSimilarRecipes() async {
+    try {
+      debugPrint('🚀 [RecipeDetailService] Fetching similar recipes from: ${ApiEndpoints.homescreenBanner}');
+      
+      final response = await _dio.get(ApiEndpoints.homescreenBanner);
+
+      debugPrint('📥 [RecipeDetailService] Similar Recipes Status: ${response.statusCode}');
+      debugPrint('📥 [RecipeDetailService] Similar Recipes Response Data: ${response.data}');
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final rawData = response.data;
+        
+        if (rawData is Map<String, dynamic>) {
+           // Handle structured response with 'recipes' or 'data' key
+           final dynamic dataField = rawData['recipes'] ?? rawData['data'];
+           debugPrint('📥 [RecipeDetailService] dataField type: ${dataField?.runtimeType}');
+           
+           if (dataField is List) {
+             debugPrint('🍱 [RecipeDetailService] Received ${dataField.length} recipes');
+             return List<Map<String, dynamic>>.from(dataField);
+           } else {
+             debugPrint('⚠️ [RecipeDetailService] Found no list in "recipes" or "data" fields');
+             
+             // Fallback: check if the top level is a list (though Dio usually parses as Map if it has keys)
+             if (rawData.isEmpty) return [];
+           }
+        } else if (rawData is List) {
+           debugPrint('🍱 [RecipeDetailService] rawData is directly a List of length ${rawData.length}');
+           return List<Map<String, dynamic>>.from(rawData);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('❌ [RecipeDetailService] Error fetching similar recipes: $e');
+      if (e is DioException) {
+        debugPrint('❌ [RecipeDetailService] Dio Error: ${e.message}');
+        if (e.response != null) {
+          debugPrint('❌ [RecipeDetailService] Dio error response: ${e.response?.data}');
+        }
+      }
+      return [];
+    }
+  }
+
   // Fetch recipe details from backend using recipeId
   static Future<Map<String, dynamic>?> fetchRecipeDetails(String recipeId) async {
     try {

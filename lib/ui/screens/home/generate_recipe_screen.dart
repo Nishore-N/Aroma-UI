@@ -105,6 +105,12 @@ class _GenerateRecipeScreenState extends State<GenerateRecipeScreen> {
       });
       
       _triggerImageGeneration();
+      
+      // Record usage of ingredients
+      if (mounted) {
+        final pantryState = Provider.of<PantryState>(context, listen: false);
+        pantryState.recordUsage(ingredients);
+      }
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {

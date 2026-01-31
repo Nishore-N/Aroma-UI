@@ -27,7 +27,6 @@ class AuthService with ChangeNotifier {
   Future<void> initialize() async {
     try {
       _isLoading = true;
-      notifyListeners();
       
       final prefs = await SharedPreferences.getInstance();
       _token = prefs.getString(_tokenKey);
@@ -280,7 +279,6 @@ class AuthService with ChangeNotifier {
       );
       
       // Store in temporary storage
-      _tempUserStore[phone] = mockUser;
       _tempUserStore[phone] = mockUser;
 
       

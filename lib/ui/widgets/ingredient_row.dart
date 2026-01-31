@@ -6,7 +6,7 @@ class IngredientRow extends StatelessWidget {
   final String emoji;
   final String name;
   final int matchPercent;
-  final int quantity;
+  final double quantity;
   final VoidCallback onRemove;
   final VoidCallback? onEdit;
   final bool useImageService;
@@ -74,7 +74,7 @@ class IngredientRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Quantity: $quantity',
+                  'Quantity: ${quantity.toStringAsFixed(1)}',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.black.withOpacity(0.55),

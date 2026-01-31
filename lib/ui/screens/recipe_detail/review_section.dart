@@ -8,31 +8,34 @@ class ReviewSection extends StatefulWidget {
   const ReviewSection({
     super.key,
     required this.reviews,
+
     required this.recipeName,
+    required this.onAddReview,
   });
+
+  final Function(String) onAddReview;
 
   @override
   State<ReviewSection> createState() => _ReviewSectionState();
 }
 
 class _ReviewSectionState extends State<ReviewSection> {
-  late List<Map<String, dynamic>> _reviews;
   bool isExpanded = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _reviews = widget.reviews;
-    // AI review generation disabled - using only backend data
+  String _getImageForName(String name) {
+    if (name == "Mike Chen") return "https://i.pravatar.cc/150?img=11";
+    if (name == "Sarah Johnson") return "https://i.pravatar.cc/150?img=5";
+    if (name == "Emily Davis") return "https://i.pravatar.cc/150?img=9";
+    return "https://i.pravatar.cc/150?img=12"; // Default
   }
 
   double get averageRating {
-    if (_reviews.isEmpty) return 0.0;
-    final total = _reviews.fold<double>(
+    if (widget.reviews.isEmpty) return 0.0;
+    final total = widget.reviews.fold<double>(
       0,
       (sum, r) => sum + (r["rating"] ?? 5).toDouble(),
     );
-    return (total / _reviews.length).clamp(0.0, 5.0);
+    return (total / widget.reviews.length).clamp(0.0, 5.0);
   }
 
   @override
@@ -53,7 +56,7 @@ class _ReviewSectionState extends State<ReviewSection> {
               ),
             ),
 
-            if (_reviews.isNotEmpty)
+            if (widget.reviews.isNotEmpty) ...[
               Row(
                 children: [
                   const Text(
@@ -90,6 +93,7 @@ class _ReviewSectionState extends State<ReviewSection> {
                   ),
                 ],
               ),
+            ],
           ],
         ),
 
@@ -99,7 +103,9 @@ class _ReviewSectionState extends State<ReviewSection> {
         Row(
           children: [
             Text(
-              "${_reviews.length} Comments",
+              widget.reviews.isEmpty
+                  ? "No reviews yet"
+                  : "${widget.reviews.length} Comments",
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -115,7 +121,7 @@ class _ReviewSectionState extends State<ReviewSection> {
               ),
             ),
             Text(
-              "Reviewed by ${_reviews.length + 100}", // Mocking 'Reviewed by' count to match typical social proof design
+              "Reviewed by ${widget.reviews.length + 100}", // Mocking 'Reviewed by' count to match typical social proof design
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -128,7 +134,7 @@ class _ReviewSectionState extends State<ReviewSection> {
         const SizedBox(height: 22),
 
         /// ---- EMPTY STATE ----
-        if (_reviews.isEmpty)
+        if (widget.reviews.isEmpty)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -153,52 +159,18 @@ class _ReviewSectionState extends State<ReviewSection> {
         else
           /// ---- SHOW REVIEWS ----
           Column(
-            children: (isExpanded ? _reviews : _reviews.take(2)).map((review) {
+            children: (isExpanded ? widget.reviews : widget.reviews.take(2)).map((review) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 20),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     /// Avatar with AI badge
-                    Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: (review['isAI'] ?? false)
-                              ? Colors.blue.shade100
-                              : Colors.orange.shade100,
-                          child: Text(
-                            (review["name"] ?? "U")
-                                .toString()
-                                .substring(0, 1)
-                                .toUpperCase(),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: (review['isAI'] ?? false)
-                                  ? Colors.blue.shade800
-                                  : Colors.orange.shade800,
-                            ),
-                          ),
-                        ),
-                        if (review['isAI'] ?? false)
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.auto_awesome,
-                                size: 12,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundImage: NetworkImage(review["imageUrl"] ?? _getImageForName(review["name"])), // Dynamic image with fallback
+                        backgroundColor: Colors.grey.shade200,
+                      ),
 
                     const SizedBox(width: 14),
 
@@ -209,41 +181,20 @@ class _ReviewSectionState extends State<ReviewSection> {
                         children: [
                           Text(
                             review["name"] ?? "Anonymous",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: Colors.grey.shade800,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              ...List.generate(
-                                5,
-                                (index) => Icon(
-                                  index < (review['rating'] ?? 5)
-                                      ? Icons.star
-                                      : Icons.star_border,
-                                  size: 16,
-                                  color: Colors.amber,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                review['timeAgo'] ?? '',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ],
-                          ),
                           const SizedBox(height: 6),
                           Text(
                             review["comment"] ?? "",
-                            style: const TextStyle(
-                              fontSize: 14,
-                              height: 1.5,
-                              color: Colors.black87,
+                            style: TextStyle(
+                              fontSize: 15,
+                              height: 1.4,
+                              color: Colors.grey.shade600,
                             ),
                           ),
                         ],
@@ -261,8 +212,8 @@ class _ReviewSectionState extends State<ReviewSection> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _actionButton("assets/images/reviews/write_review.svg", "Write review", () {}),
-            if (_reviews.length > 2)
+            _actionButton("assets/images/reviews/write_review.svg", "Write review", () => _showWriteReviewBottomSheet(context)),
+            if (widget.reviews.length > 2)
               _actionButton(
                 isExpanded 
                     ? "assets/images/reviews/read_more.svg" 
@@ -296,5 +247,97 @@ class _ReviewSectionState extends State<ReviewSection> {
         ],
       ),
     );
+    }
+
+  void _showWriteReviewBottomSheet(BuildContext context) {
+    final TextEditingController _controller = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Write a Review",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _controller,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: "Share your thoughts on this recipe...",
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFFF6A45), width: 1.5),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (_controller.text.trim().isNotEmpty) {
+                      widget.onAddReview(_controller.text.trim());
+                      Navigator.pop(context);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6A45),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    "Post Review",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
+

@@ -26,7 +26,7 @@ class _ReviewIngredientsListScreenState
 
   /// 👉 Store price, quantity & metrics separately (clean approach)
   final Map<String, double> _priceMap = {};
-  final Map<String, int> _quantityMap = {};
+  final Map<String, double> _quantityMap = {};
   final Map<String, String> _imageMap = {}; // Store image URLs
   bool _isLoading = true;
   String? _error;
@@ -65,7 +65,7 @@ class _ReviewIngredientsListScreenState
         _priceMap[id] =
             double.tryParse(item["price"]?.toString() ?? "0") ?? 0.0;
         _quantityMap[id] =
-            int.tryParse(item["qty"]?.toString() ?? "1") ?? 1;
+            double.tryParse(item["qty"]?.toString() ?? "1.0") ?? 1.0;
         _imageMap[id] = item["image_url"]?.toString() ?? ""; // Use image_url from new API
         debugPrint("🎯 [ReviewIngredientsListScreen] Image mapping for ${item["name"]}: ${_imageMap[id]}");
 
@@ -101,7 +101,7 @@ class _ReviewIngredientsListScreenState
   Future<void> _showAddIngredientDialog() async {
     final nameController = TextEditingController();
     final metricController = TextEditingController();
-    final quantityController = TextEditingController(text: "1");
+    final quantityController = TextEditingController(text: "1.0");
 
     await showDialog(
       context: context,
@@ -120,10 +120,49 @@ class _ReviewIngredientsListScreenState
               keyboardType: TextInputType.text,
               decoration: const InputDecoration(labelText: "Metric"),
             ),
-            TextField(
-              controller: quantityController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: "Quantity"),
+            const SizedBox(height: 16),
+            const Text("Quantity", style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (context, setDialogState) {
+                double qty = double.tryParse(quantityController.text) ?? 1.0;
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove, color: AppColors.primary),
+                        onPressed: () {
+                          if (qty > 0.5) {
+                            qty -= 0.5;
+                            quantityController.text = qty.toStringAsFixed(1);
+                            setDialogState(() {});
+                          }
+                        },
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            qty.toStringAsFixed(1),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add, color: AppColors.primary),
+                        onPressed: () {
+                          qty += 0.5;
+                          quantityController.text = qty.toStringAsFixed(1);
+                          setDialogState(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -150,7 +189,7 @@ class _ReviewIngredientsListScreenState
                   );
                   _priceMap[id] = 0.0; // Price not used in home screen
                   _quantityMap[id] =
-                      int.tryParse(quantityController.text) ?? 1;
+                      double.tryParse(quantityController.text) ?? 1.0;
                 });
               }
               Navigator.pop(context);
@@ -167,7 +206,7 @@ class _ReviewIngredientsListScreenState
     final item = _ingredients[index];
     final currentQuantity = _quantityMap[item.id] ?? 1;
     
-    final quantityController = TextEditingController(text: currentQuantity.toString());
+    final quantityController = TextEditingController(text: currentQuantity.toStringAsFixed(1));
 
     await showDialog(
       context: context,
@@ -176,13 +215,49 @@ class _ReviewIngredientsListScreenState
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: quantityController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Quantity",
-                hintText: "Enter quantity"
-              ),
+            const SizedBox(height: 16),
+            const Text("Quantity", style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (context, setDialogState) {
+                double qty = double.tryParse(quantityController.text) ?? 1.0;
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove, color: AppColors.primary),
+                        onPressed: () {
+                          if (qty > 0.5) {
+                            qty -= 0.5;
+                            quantityController.text = qty.toStringAsFixed(1);
+                            setDialogState(() {});
+                          }
+                        },
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            qty.toStringAsFixed(1),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add, color: AppColors.primary),
+                        onPressed: () {
+                          qty += 0.5;
+                          quantityController.text = qty.toStringAsFixed(1);
+                          setDialogState(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -193,7 +268,7 @@ class _ReviewIngredientsListScreenState
           ),
           TextButton(
             onPressed: () {
-              final newQuantity = int.tryParse(quantityController.text) ?? currentQuantity;
+              final newQuantity = double.tryParse(quantityController.text) ?? currentQuantity;
               final itemId = item.id;
               
               if (itemId?.isNotEmpty == true) {
@@ -345,7 +420,7 @@ class _ReviewIngredientsListScreenState
       itemBuilder: (context, index) {
         final item = _ingredients[index];
         final price = _priceMap[item.id] ?? 0.0;
-        final qty = _quantityMap[item.id] ?? 1;
+        final double qty = _quantityMap[item.id] ?? 1.0;
         
         return IngredientRow(
           emoji: item.emoji,

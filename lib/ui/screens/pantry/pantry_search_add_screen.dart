@@ -5,6 +5,7 @@ import '../../../state/pantry_state.dart';
 import '../../../core/utils/item_image_resolver.dart';
 import 'pantry_home_screen.dart';
 import '../../../data/services/shopping_list_service.dart';
+import '../../../core/services/auth_service.dart';
 
 const Color kAccent = Color(0xFFFF7A4A);
 const Color kBgLight = Color(0xFFFFF1EB);
@@ -97,12 +98,8 @@ class _PantrySearchAddScreenState extends State<PantrySearchAddScreen> {
   void _openQuantitySheet(String displayName) {
     final key = normalizeName(displayName);
 
-    final qtyController = TextEditingController(
-      text: pantryItemDetails[key]?['quantity']?.toString() ?? '',
-    );
-
-    String selectedUnit =
-        pantryItemDetails[key]?['unit'] ?? "pcs";
+    double quantity = pantryItemDetails[key]?['quantity']?.toDouble() ?? 1.0;
+    String selectedUnit = pantryItemDetails[key]?['unit'] ?? "pcs";
 
     showModalBottomSheet(
       context: context,
@@ -157,19 +154,42 @@ class _PantrySearchAddScreenState extends State<PantrySearchAddScreen> {
 
                   const Text("Quantity",
                       style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
 
-                  TextField(
-                    controller: qtyController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: "Quantity",
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
+                  // ➖➕ QUANTITY CONTROLLER
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: kAccent),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove, color: kAccent),
+                          onPressed: () {
+                            if (quantity > 0.5) {
+                              setModalState(() => quantity -= 0.5);
+                            }
+                          },
+                        ),
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              quantity.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add, color: kAccent),
+                          onPressed: () {
+                            setModalState(() => quantity += 0.5);
+                          },
+                        ),
+                      ],
                     ),
                   ),
 
@@ -183,25 +203,19 @@ class _PantrySearchAddScreenState extends State<PantrySearchAddScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () {
-                        if (qtyController.text.isEmpty) return;
+                        final pantryState = context.read<PantryState>();
+                        final shoppingService = context.read<ShoppingListService>();
+                        final authService = context.read<AuthService>();
+                        final String? userId = authService.user?.mobile_no;
 
-                        final quantity =
-                            double.tryParse(qtyController.text) ?? 0;
-
-                        final pantryState =
-                            context.read<PantryState>();
-                        final shoppingService =
-                            context.read<ShoppingListService>();
-
-                        // 1️⃣ SAVE TO PANTRY (normalized key)
-                        pantryState.setItem(
+                        // 1️⃣ SAVE TO PANTRY (normalized key) & SYNC REMOTE
+                         pantryState.updateQuantity(
                           key,
                           quantity,
-                          selectedUnit,
+                          userId: userId,
                         );
 
                         // 2️⃣ SAVE TO SHOPPING LIST (all quantities)

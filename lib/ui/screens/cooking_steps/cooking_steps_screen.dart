@@ -105,7 +105,7 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
     }
   }
 
-  Widget _buildIngredientIcon(dynamic icon, String ingredientName) {
+  Widget _buildIngredientIcon(dynamic icon, String ingredientName, {double size = 48}) {
     if (icon is String && icon.isNotEmpty && (icon.startsWith('http://') || icon.startsWith('https://'))) {
       String imageUrl = icon;
       // Try to find better match if needed, but direct URL is fine
@@ -114,33 +114,33 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
       }
 
       return Container(
-        width: 48,
-        height: 48,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(size / 4),
+          border: Border.all(color: Colors.grey.shade100),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(size / 4),
           child: CachedNetworkImage(
             imageUrl: imageUrl,
             fit: BoxFit.cover,
-            placeholder: (context, url) => Container(color: Colors.grey[200]),
-            errorWidget: (context, url, error) => ItemImageResolver.getImageWidget(ingredientName, size: 48),
+            placeholder: (context, url) => Container(color: Colors.grey[100]),
+            errorWidget: (context, url, error) => ItemImageResolver.getImageWidget(ingredientName, size: size),
           ),
         ),
       );
     }
     
     return Container(
-      width: 48,
-      height: 48,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(size / 4),
+        border: Border.all(color: Colors.grey.shade100),
       ),
       child: Center(
-        child: ItemImageResolver.getImageWidget(ingredientName, size: 30),
+        child: ItemImageResolver.getImageWidget(ingredientName, size: size * 0.7),
       ),
     );
   }
@@ -316,57 +316,67 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
               const Text(
                 "Cooking Steps",
                 style: TextStyle(
-                  fontSize: 28,
+                  fontSize: 32,
                   fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                  color: Colors.black,
                 ),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
               Row(
                 children: [
                   Text(
                     "Step ${widget.currentStep}",
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       color: Color(0xFFFF6A45),
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   Text(
                     " / ${currentSteps.length}",
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       color: Colors.grey,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
-              Stack(
-                children: [
-                  Container(height: 4, color: Colors.grey.shade300),
-                  Container(
-                    height: 4,
-                    width: MediaQuery.of(context).size.width *
-                        (widget.currentStep / currentSteps.length),
-                    color: const Color(0xFFFF6A45),
-                  ),
-                ],
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Stack(
+                  children: [
+                    Container(height: 6, color: Colors.grey.shade200),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      height: 6,
+                      width: (MediaQuery.of(context).size.width - 36) *
+                          (widget.currentStep / currentSteps.length),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF6A45),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
-              const SizedBox(height: 16),
-              Divider(color: Colors.grey.shade300, thickness: 1.2),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
+              Divider(color: Colors.grey.shade200, thickness: 1.5),
+              const SizedBox(height: 20),
 
               const Text(
                 "Instruction",
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: FontWeight.w900,
+                  color: Colors.black,
                 ),
               ),
 
@@ -376,19 +386,21 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Color(0xFFFFB99A), width: 2),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFFFB99A), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF6A45).withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      instruction,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        height: 1.55,
-                      ),
-                    ),
+                    _buildHighlightedText(instruction, stepIngredients),
 
                     const SizedBox(height: 22),
 
@@ -483,6 +495,7 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
+                      color: Colors.black,
                     ),
                   ),
                   GestureDetector(
@@ -512,102 +525,105 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                 ],
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 18),
 
               const Text(
                 "This Step's Ingredients",
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey,
+                  color: Colors.black,
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 22),
 
-              Column(
-                children: stepIngredients.map<Widget>((ingredient) {
-                  final name = (ingredient['item'] ?? ingredient['name'] ?? 'Ingredient').toString();
-                  final baseQty = ingredient['quantity'] ?? ingredient['qty'] ?? '';
-                  final unit = ingredient['unit']?.toString() ?? '';
-                  final qty = RecipeFormatter.formatQuantity(baseQty, widget.servings, unit);
-                  
-                  var imageUrl = ingredient['image_url']?.toString() ?? 
-                               ingredient['imageUrl']?.toString() ?? 
-                               ingredient['image']?.toString() ?? '';
-                  
-                  if (imageUrl.isEmpty && widget.allIngredients.isNotEmpty) {
-                    for (final allIng in widget.allIngredients) {
-                      final allName = (allIng['item'] ?? allIng['name'] ?? '').toString().toLowerCase().trim();
-                      final currentName = name.toLowerCase().trim();
-                      if (allName == currentName || currentName.contains(allName) || allName.contains(currentName)) {
-                        imageUrl = allIng['image_url']?.toString() ?? 
-                                   allIng['imageUrl']?.toString() ?? 
-                                   allIng['image']?.toString() ?? '';
-                        break;
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: stepIngredients.map<Widget>((ingredient) {
+                    final name = (ingredient['item'] ?? ingredient['name'] ?? 'Ingredient').toString();
+                    final baseQty = ingredient['quantity'] ?? ingredient['qty'] ?? '';
+                    final unit = ingredient['unit']?.toString() ?? '';
+                    final qty = RecipeFormatter.formatQuantity(baseQty, widget.servings, unit);
+                    
+                    var imageUrl = ingredient['image_url']?.toString() ?? 
+                                 ingredient['imageUrl']?.toString() ?? 
+                                 ingredient['image']?.toString() ?? '';
+                    
+                    if (imageUrl.isEmpty && widget.allIngredients.isNotEmpty) {
+                      for (final allIng in widget.allIngredients) {
+                        final allName = (allIng['item'] ?? allIng['name'] ?? '').toString().toLowerCase().trim();
+                        final currentName = name.toLowerCase().trim();
+                        if (allName == currentName || currentName.contains(allName) || allName.contains(currentName)) {
+                          imageUrl = allIng['image_url']?.toString() ?? 
+                                     allIng['imageUrl']?.toString() ?? 
+                                     allIng['image']?.toString() ?? '';
+                          break;
+                        }
                       }
                     }
-                  }
-                  
-                   if (imageUrl.isEmpty) {
-                    imageUrl = _locallyGeneratedImages[name] ?? '';
-                  }
-                  
-                  final icon = imageUrl.isNotEmpty ? imageUrl : name; 
+                    
+                     if (imageUrl.isEmpty) {
+                      imageUrl = _locallyGeneratedImages[name] ?? '';
+                    }
+                    
+                    final icon = imageUrl.isNotEmpty ? imageUrl : name; 
 
-                  return Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFFFFDCCD),
-                        width: 1.6,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
+                    return Container(
+                      margin: const EdgeInsets.only(right: 12, bottom: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFFFFCABB),
+                          width: 1.2,
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        _buildIngredientIcon(icon, name),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildIngredientIcon(icon, name, size: 36),
+                          const SizedBox(width: 10),
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
                                 name,
                                 style: const TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.black,
+                                  color: Color(0xFF212529),
                                 ),
                               ),
                               if (qty.isNotEmpty) ...[
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 2),
                                 Text(
                                   qty,
                                   style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF7A7A7A),
+                                    fontSize: 12,
+                                    color: Color(0xFF6C757D),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
 
               const SizedBox(height: 26),
@@ -628,6 +644,7 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
+                          color: Colors.black,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -649,9 +666,10 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                             children: [
                               Text(
                                 question,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   height: 1.2,
+                                  color: Colors.black.withOpacity(0.8),
                                 ),
                               ),
                               if (answer.isNotEmpty) ...[
@@ -662,6 +680,7 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                     height: 1.2,
+                                    color: Colors.black,
                                   ),
                                 ),
                               ],
@@ -746,7 +765,7 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const CompletionScreen(),
+                                builder: (_) => CompletionScreen(recipeName: widget.recipeName),
                               ),
                             );
                           }
@@ -770,6 +789,69 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildHighlightedText(String text, List<Map<String, dynamic>> stepIngredients) {
+    if (text.isEmpty) return const SizedBox.shrink();
+
+    final List<String> highlightTerms = [];
+    for (final ing in stepIngredients) {
+      final name = (ing['item'] ?? ing['name'] ?? '').toString().toLowerCase();
+      if (name.isNotEmpty) {
+        highlightTerms.add(name);
+        final words = name.split(' ');
+        for (final word in words) {
+          if (word.length > 3 && !['with', 'from', 'into', 'your'].contains(word)) {
+            highlightTerms.add(word);
+          }
+        }
+      }
+    }
+
+    highlightTerms.sort((a, b) => b.length.compareTo(a.length));
+    final timeRegex = RegExp(r'(\d+[-–\d+]*)?\s*(minutes|mins|hours|hrs|seconds|secs)', caseSensitive: false);
+    
+    final List<TextSpan> spans = [];
+    int currentPos = 0;
+
+    final escapedTerms = highlightTerms.where((t) => t.isNotEmpty).map((t) => RegExp.escape(t)).toList();
+    String pattern = escapedTerms.isNotEmpty 
+        ? '(${escapedTerms.join('|')}|${timeRegex.pattern})'
+        : timeRegex.pattern;
+    
+    final combinedRegex = RegExp(pattern, caseSensitive: false);
+    final matches = combinedRegex.allMatches(text);
+    
+    for (final match in matches) {
+      if (match.start > currentPos) {
+        spans.add(TextSpan(
+          text: text.substring(currentPos, match.start),
+          style: const TextStyle(fontSize: 18, height: 1.6, color: Color(0xFF2D2D2D)),
+        ));
+      }
+      
+      spans.add(TextSpan(
+        text: text.substring(match.start, match.end),
+        style: const TextStyle(
+          fontSize: 18,
+          height: 1.6,
+          fontWeight: FontWeight.w900,
+          color: Color(0xFFC04423),
+        ),
+      ));
+      currentPos = match.end;
+    }
+    
+    if (currentPos < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(currentPos),
+        style: const TextStyle(fontSize: 18, height: 1.6, color: Color(0xFF2D2D2D)),
+      ));
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
     );
   }
 }

@@ -56,10 +56,6 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _initializeApp() async {
     try {
       // Development mode - fixed 5 second splash screen
-      if (kDebugMode) {
-        print('🚀 [Splash Screen] Fixed 5-second development delay');
-      }
-      
       setState(() {
         _initStatus = 'Initializing app...';
         _progress = 0.2;
@@ -68,16 +64,6 @@ class _SplashScreenState extends State<SplashScreen> {
       // Initialize auth service first
       final authService = Provider.of<AuthService>(context, listen: false);
       await authService.initialize();
-      
-      setState(() {
-        _initStatus = 'Loading recipes...';
-        _progress = 0.5;
-      });
-
-      // Fixed 5-second delay for development
-      await Future.delayed(Duration(seconds: 5));
-
-
       
       setState(() {
         _initStatus = 'Ready!';

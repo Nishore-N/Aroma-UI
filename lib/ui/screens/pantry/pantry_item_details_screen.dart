@@ -4,6 +4,8 @@ import '../../../core/utils/item_image_resolver.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import '../../../../state/pantry_state.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../data/services/pantry_crud_service.dart';
 
 
 const Color kAccent = Color(0xFFFF7A4A);
@@ -22,12 +24,12 @@ class PantryItemDetailsScreen extends StatefulWidget {
 }
 
 class _PantryItemDetailsScreenState extends State<PantryItemDetailsScreen> {
-  late double quantity;
+  double addQuantity = 1.0;
 
   @override
   void initState() {
     super.initState();
-    quantity = double.tryParse(widget.item['quantity'].toString()) ?? 0;
+    addQuantity = 1.0; // Default count to add
   }
 
   @override
@@ -42,17 +44,21 @@ class _PantryItemDetailsScreenState extends State<PantryItemDetailsScreen> {
                           imageUrl: pantry.getItemImage(name) ?? widget.item['imageUrl'],
                         );
 
-final double currentQty =
-    pantry.getQty(widget.item['name']);
+final double currentQty = pantry.getQty(widget.item['name']);
+final pantryItem = pantry.items.firstWhere(
+  (e) => e.name.toLowerCase().trim() == (widget.item['name'] as String).toLowerCase().trim(),
+  orElse: () => PantryItem(name: '', quantity: 0, unit: ''),
+);
 
+final now = DateTime.now();
 final List<FlSpot> usageSpots = List.generate(7, (index) {
-  // simple decreasing trend (product-safe)
-  final value =
-      currentQty - ((6 - index) * (currentQty / 6));
+  final day = now.subtract(Duration(days: 6 - index));
+  final count = pantryItem.usageHistory.where((dt) =>
+      dt.year == day.year && dt.month == day.month && dt.day == day.day).length;
 
   return FlSpot(
     index.toDouble(),
-    value < 0 ? 0 : value,
+    count.toDouble(),
   );
 });
 
@@ -112,7 +118,7 @@ final List<FlSpot> usageSpots = List.generate(7, (index) {
                   children: [
                     const TextSpan(text: "Available Quantity: "),
                     TextSpan(
-                      text: "$quantity $unit",
+                      text: "${currentQty.toStringAsFixed(1)} $unit",
                       style: const TextStyle(
                         color: kAccent,
                         fontWeight: FontWeight.bold,
@@ -124,6 +130,12 @@ final List<FlSpot> usageSpots = List.generate(7, (index) {
 
               const SizedBox(height: 16),
 
+              const Text(
+                "Quantity to adjust",
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 8),
+
               // ➖➕ QUANTITY CONTROLLER
               Container(
                 decoration: BoxDecoration(
@@ -134,13 +146,13 @@ final List<FlSpot> usageSpots = List.generate(7, (index) {
                   children: [
                     _qtyButton("-", () {
                       setState(() {
-                        if (quantity > 0) quantity--;
+                        if (addQuantity > 0.5) addQuantity -= 0.5;
                       });
                     }),
                     Expanded(
                       child: Center(
                         child: Text(
-                          quantity.toStringAsFixed(1),
+                          addQuantity.toStringAsFixed(1),
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -150,7 +162,7 @@ final List<FlSpot> usageSpots = List.generate(7, (index) {
                     ),
                     _qtyButton("+", () {
                       setState(() {
-                        quantity++;
+                        addQuantity += 0.5;
                       });
                     }),
                   ],
@@ -159,48 +171,98 @@ final List<FlSpot> usageSpots = List.generate(7, (index) {
 
               const SizedBox(height: 16),
 
-              // 🔘 UPDATE BUTTON
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {
-                    // TODO: call update API
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.grey.shade400),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+              // 🔘 BUTTONS: ADD & DEDUCT
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final authService = Provider.of<AuthService>(context, listen: false);
+                        final String? userId = authService.user?.mobile_no;
+                        
+                        final double newTotalQty = currentQty + addQuantity;
+                        
+                        // 1. Update local state immediately (Optimistic)
+                        // This triggers notifyListeners() which rebuilds the UI instantly
+                        pantry.updateQuantity(name, newTotalQty, userId: userId);
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Quantity added successfully!"),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                          setState(() {
+                            addQuantity = 1.0;
+                          });
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text("Add to Stock"),
+                    ),
                   ),
-                  child: const Text("Update"),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        final authService = Provider.of<AuthService>(context, listen: false);
+                        final String? userId = authService.user?.mobile_no;
+
+                        if (currentQty < addQuantity) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Cannot deduct more than available amount!"),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                          return;
+                        }
+
+                        // 🔻 DEDUCTION FLOW: OPTIMISTIC LOCAL + BACKGROUND REMOTE
+                        final double newQty = currentQty - addQuantity;
+                        
+                        // Use consistent updateQuantity method which now handles 'Set' logic and removal
+                        pantry.updateQuantity(name, newQty, userId: userId);
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Quantity deducted successfully!"),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                          setState(() {
+                            addQuantity = 1.0;
+                          });
+                        }
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: kAccent),
+                        foregroundColor: kAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text("Deduct from Stock"),
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 24),
               const Divider(),
 
-              // 📊 MACROS SECTION
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Nutritional Information",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    // Try to get macros from pantry item data
-                    _buildMacrosDisplay(),
-                  ],
-                ),
-              ),
+              // Nutritional information box removed as requested
               
               // 📈 USAGE TREND (STATIC UI)
               const Text(
@@ -239,6 +301,7 @@ final List<FlSpot> usageSpots = List.generate(7, (index) {
           sideTitles: SideTitles(
             showTitles: true,
             getTitlesWidget: (value, _) {
+              final dayDate = now.subtract(Duration(days: 6 - value.toInt()));
               const days = [
                 'Sun',
                 'Mon',
@@ -248,8 +311,14 @@ final List<FlSpot> usageSpots = List.generate(7, (index) {
                 'Fri',
                 'Sat'
               ];
+              // return days[dayDate.weekday % 7]; // weekday is 1-7 (Mon-Sun)
+              // We need Sun at index 0, but DateTime.weekday has Sun at 7 or 0 depending on version.
+              // In Dart, Monday is 1, Sunday is 7.
+              final List<String> shortDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+              final label = shortDays[dayDate.weekday - 1]; // Correct index for shortDays
+              
               return Text(
-                days[value.toInt()],
+                label,
                 style: const TextStyle(fontSize: 10),
               );
             },

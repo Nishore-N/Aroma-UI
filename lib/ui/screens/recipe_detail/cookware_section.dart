@@ -34,13 +34,13 @@ class CookwareSection extends StatelessWidget {
 
         /// --- SERVINGS SUB-TEXT ---
         Text(
-          "$servings servings",
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
+          "$servings ${servings == 1 ? 'serving' : 'servings'}",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade600,
+            ),
           ),
-        ),
 
         const SizedBox(height: 14),
 
@@ -76,26 +76,15 @@ class CookwareSection extends StatelessWidget {
             ),
           )
         else
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: cookwareItems.map((item) {
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFEFE5),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  item,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              );
-            }).toList(),
+
+          Text(
+             cookwareItems.join(', '),
+             style: TextStyle(
+               fontSize: 15,
+               height: 1.5,
+               fontWeight: FontWeight.w400,
+               color: Colors.grey.shade800,
+             ),
           ),
       ],
     );

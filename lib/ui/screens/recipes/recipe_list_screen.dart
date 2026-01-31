@@ -7,6 +7,8 @@ import '../../../data/services/home_recipe_service.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../data/services/preference_api_service.dart';
 import '../../../data/services/recipe_detail_service.dart';
+import 'package:provider/provider.dart';
+import '../../../state/pantry_state.dart';
 import '../../widgets/recipe_card.dart';
 
 class RecipeListScreen extends StatefulWidget {
@@ -187,6 +189,13 @@ class _RecipeListScreenState extends State<RecipeListScreen> {
       _isLoading = false;
       _isLoadingMore = false;
       _hasError = false;
+
+      // Record usage of ingredients
+      if (mounted) {
+        final pantryState = Provider.of<PantryState>(context, listen: false);
+        final ingredientNames = widget.ingredients.map((e) => e['name']?.toString() ?? '').toList();
+        pantryState.recordUsage(ingredientNames);
+      }
     });
   }
 

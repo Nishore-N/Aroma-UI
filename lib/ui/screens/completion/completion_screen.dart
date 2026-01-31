@@ -9,7 +9,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:permission_handler/permission_handler.dart';
 
 class CompletionScreen extends StatefulWidget {
-  const CompletionScreen({super.key});
+  final String recipeName;
+  const CompletionScreen({super.key, required this.recipeName});
 
   @override
   State<CompletionScreen> createState() => _CompletionScreenState();
@@ -77,13 +78,17 @@ class _CompletionScreenState extends State<CompletionScreen> {
             const SizedBox(height: 6),
 
             /// SUBTITLE
-            const Text(
-              "You've successfully completed\nCooking Authentic North Indian Dal Makhani",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                color: Colors.black87,
+            /// SUBTITLE
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                "You've successfully completed\n${widget.recipeName}",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  color: Colors.black87,
+                ),
               ),
             ),
 
@@ -286,7 +291,7 @@ class _CompletionScreenState extends State<CompletionScreen> {
                             ),
                             elevation: 0,
                           ),
-                          onPressed: () {},
+                          onPressed: _handleSubmit,
                           child: const Text(
                             "Submit",
                             style: TextStyle(
@@ -303,6 +308,130 @@ class _CompletionScreenState extends State<CompletionScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _handleSubmit() {
+    if (_rating == 0 || _commentController.text.trim().isEmpty) {
+      _showValidationPopup();
+      return;
+    }
+
+    _showSuccessPopup();
+  }
+
+  void _showValidationPopup() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          "Almost there!",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          "Please provide a rating and share your thoughts about the recipe before submitting.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              "OK",
+              style: TextStyle(
+                color: Color(0xFFFF7A4D),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuccessPopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F5E9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF4CAF50),
+                  size: 60,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "Recipe thoughts shared!",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                "You're a master chef! Your feedback helps the community.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  return Icon(
+                    Icons.star,
+                    size: 28,
+                    color: index < _rating
+                        ? const Color(0xFFFFC107)
+                        : Colors.grey.shade300,
+                  );
+                }),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF7A4D),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    // Navigate back to the very beginning (Home Screen)
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
+                  child: const Text(
+                    "Back to Home",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

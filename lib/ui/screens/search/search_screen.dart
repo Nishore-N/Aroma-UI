@@ -132,15 +132,6 @@ class _SearchScreenState extends State<SearchScreen> {
                         color: Color(0xFFFC6E3C),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Find recipes, ingredients, and more',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFFFC6E3C).withOpacity(0.8),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
                   ],
                 ),
               ),

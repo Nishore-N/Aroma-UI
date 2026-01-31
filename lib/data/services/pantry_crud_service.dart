@@ -40,7 +40,7 @@ class PantryCrudService {
   }
 
   // 🔹 CREATE: Add pantry items
-  Future<Map<String, dynamic>> addPantryItems(List<Map<String, dynamic>> items) async {
+  Future<Map<String, dynamic>> addPantryItems(List<Map<String, dynamic>> items, {String? userId}) async {
     try {
       debugPrint("📤 Adding ${items.length} pantry items...");
       
@@ -48,11 +48,12 @@ class PantryCrudService {
       final ingredientsWithQuantity = items.map((item) => {
         "item": item['name']?.toString() ?? '',
         "price": (item['price'] as num?)?.toDouble() ?? 0.0,
-        "quantity": (item['quantity'] as num?)?.toInt() ?? 1,
+        "quantity": (item['quantity'] as num?)?.toDouble() ?? 1.0,
       }).toList();
       
       // Create the request body in the correct format
       final requestBody = {
+        if (userId != null) "userId": userId,
         "ingredients_with_quantity": ingredientsWithQuantity,
         "message": "Food items extracted successfully",
         "raw_text": jsonEncode({
@@ -63,10 +64,15 @@ class PantryCrudService {
         "status": true,
       };
       
+      String url = _addUrl;
+      if (userId != null && userId.isNotEmpty) {
+        url = "$url?userId=$userId";
+      }
+      debugPrint("🔗 Calling URL: $url");
       debugPrint("📦 Add request body: $requestBody");
       
       final dio = Dio();
-      final response = await dio.post(_addUrl, data: requestBody);
+      final response = await dio.post(url, data: requestBody);
       
       debugPrint("✅ Pantry items added: ${response.data}");
       return response.data;
@@ -85,7 +91,7 @@ class PantryCrudService {
       final ingredientsWithQuantity = items.map((item) => {
         "item": item['name']?.toString() ?? '',
         "price": (item['price'] as num?)?.toDouble() ?? 0.0,
-        "quantity": (item['quantity'] as num?)?.toInt() ?? 1,
+        "quantity": (item['quantity'] as num?)?.toDouble() ?? 1.0,
       }).toList();
       
       // Create the request body in the correct format
@@ -101,10 +107,15 @@ class PantryCrudService {
         "status": true,
       };
       
+      String url = _removeUrl;
+      if (userId != null && userId.isNotEmpty) {
+        url = "$url?userId=$userId";
+      }
+      debugPrint("🔗 Calling URL: $url");
       debugPrint("📦 Remove request body: $requestBody");
       
       final dio = Dio();
-      final response = await dio.post(_removeUrl, data: requestBody);
+      final response = await dio.post(url, data: requestBody);
       
       debugPrint("✅ Pantry items removed: ${response.data}");
       return response.data;
@@ -141,58 +152,46 @@ class PantryCrudService {
     }
   }
 
-  // 🔹 UPDATE: Update pantry item quantity (using remove + add)
-  Future<Map<String, dynamic>> updatePantryItem(String itemName, double newQuantity, {double? price}) async {
+  // 🔹 UPDATE: Update pantry item quantity (true SET behavior)
+  Future<void> updatePantryItem(String itemName, double newQuantity, {String? userId, double? price, String? unit}) async {
     try {
-      debugPrint("🔄 Updating pantry item: $itemName to quantity: $newQuantity");
+      debugPrint("🔄 SETTING pantry item: $itemName to total quantity: $newQuantity for user: $userId");
       
-      // First, get current items to find the item to update
-      final currentItems = await getPantryItems();
-      final itemToUpdate = currentItems.firstWhere(
-        (item) => item['name'].toString().toLowerCase() == itemName.toLowerCase(),
-        orElse: () => {},
-      );
+      // 1. Remove ALL existing instances of this item first to ensure we don't increment
+      // We call removeSingleItem without passing qty/price so it fetches current and clears it
+      await removeSingleItem(itemName, userId: userId);
       
-      if (itemToUpdate.isEmpty) {
-        throw Exception("Item not found in pantry: $itemName");
+      // 2. Add it back with the absolute new quantity
+      if (newQuantity > 0) {
+        await addPantryItems([{
+          'name': itemName,
+          'quantity': newQuantity,
+          'price': price ?? 0.0,
+          'unit': unit ?? 'pcs',
+        }], userId: userId);
       }
       
-      // Remove the old item
-      await removePantryItems([{
-        'name': itemName,
-        'quantity': itemToUpdate['quantity'],
-        'price': itemToUpdate['price'],
-      }]);
-      
-      // Add the updated item
-      final result = await addPantryItems([{
-        'name': itemName,
-        'quantity': newQuantity,
-        'price': price ?? itemToUpdate['price'],
-      }]);
-      
-      debugPrint("✅ Pantry item updated: $itemName");
-      return result;
+      debugPrint("✅ Pantry item $itemName set to $newQuantity successfully");
     } catch (e) {
-      debugPrint("❌ Error updating pantry item: $e");
+      debugPrint("❌ Error updating pantry item $itemName: $e");
       rethrow;
     }
   }
 
   // 🔹 HELPER: Add single item
-  Future<Map<String, dynamic>> addSingleItem(String name, double quantity, {double? price}) async {
+  Future<Map<String, dynamic>> addSingleItem(String name, double quantity, {String? userId, double? price}) async {
     return await addPantryItems([{
       'name': name,
       'quantity': quantity,
       'price': price ?? 0.0,
-    }]);
+    }], userId: userId);
   }
 
   // 🔹 HELPER: Remove single item
-  Future<Map<String, dynamic>> removeSingleItem(String name, {double? quantity, double? price}) async {
+  Future<Map<String, dynamic>> removeSingleItem(String name, {String? userId, double? quantity, double? price}) async {
     // Get current item details if not provided
     if (quantity == null || price == null) {
-      final currentItems = await getPantryItems();
+      final currentItems = await getPantryItems(userId: userId);
       final item = currentItems.firstWhere(
         (item) => item['name'].toString().toLowerCase() == name.toLowerCase(),
         orElse: () => {},
@@ -206,22 +205,28 @@ class PantryCrudService {
     
     // Create the request body in the exact format expected by the API
     final requestBody = {
+      if (userId != null) "userId": userId,
       "ingredients_with_quantity": [
         {
           "item": name,
           "price": price ?? 0.0,
-          "quantity": quantity?.toInt() ?? 1,
+          "quantity": quantity?.toDouble() ?? 1.0,
         }
       ],
       "message": "Food items extracted successfully",
-      "raw_text": "{\n  \"ingredients_with_quantity\": [\n    {\n      \"item\": \"$name\",\n      \"quantity\": ${quantity?.toInt() ?? 1},\n      \"price\": ${price ?? 0.0}\n    }\n  ],\n  \"message\": \"Food items with quantities and prices extracted from the receipt.\",\n  \"status\": true,\n  \"raw_text\": \"$name ${price ?? 0.0}\"\n}",
+      "raw_text": "{\n  \"ingredients_with_quantity\": [\n    {\n      \"item\": \"$name\",\n      \"quantity\": ${quantity?.toDouble() ?? 1.0},\n      \"price\": ${price ?? 0.0}\n    }\n  ],\n  \"message\": \"Food items with quantities and prices extracted from the receipt.\",\n  \"status\": true,\n  \"raw_text\": \"$name ${price ?? 0.0}\"\n}",
       "status": true,
     };
     
+    String url = _removeUrl;
+    if (userId != null && userId.isNotEmpty) {
+      url = "$url?userId=$userId";
+    }
     debugPrint("📦 Remove request body for '$name': $requestBody");
+    debugPrint("🔗 Calling URL: $url");
     
     final dio = Dio();
-    final response = await dio.post(_removeUrl, data: requestBody);
+    final response = await dio.post(url, data: requestBody);
     
     debugPrint("✅ Remove response for '$name': ${response.data}");
     return response.data;

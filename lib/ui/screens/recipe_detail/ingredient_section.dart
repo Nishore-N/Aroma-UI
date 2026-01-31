@@ -48,7 +48,7 @@ class _IngredientSectionState extends State<IngredientSection> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              "${widget.servings} Servings",
+              "${widget.servings} ${widget.servings == 1 ? 'Serving' : 'Servings'}",
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -144,8 +144,8 @@ class IngredientTile extends StatelessWidget {
                 ),
                 Text(
                   "Qty: $quantity",
-                  style: TextStyle(
-                    color: Colors.orange.shade600,
+                  style: const TextStyle(
+                    color: Colors.black,
                     fontSize: 13,
                   ),
                 ),

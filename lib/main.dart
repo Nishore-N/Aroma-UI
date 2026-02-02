@@ -14,6 +14,7 @@ import 'package:aroma/data/services/app_state_persistence_service.dart';
 
 // UI Screens
 import 'package:aroma/ui/screens/auth/auth_wrapper.dart';
+import 'package:aroma/ui/screens/intro/splash_screen.dart';
 
 // Theme
 import 'package:aroma/core/theme/app_theme.dart';
@@ -182,7 +183,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       theme: AppTheme.lightTheme,
 
-      home: const AuthWrapper(),
+      home: const SplashScreen(),
 
       // 🔁 Used internally after splash
       routes: {

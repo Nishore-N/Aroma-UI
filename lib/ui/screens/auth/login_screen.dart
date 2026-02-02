@@ -152,9 +152,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.backgroundColor,
         elevation: 0,
         toolbarHeight: 0, // This removes the app bar completely
       ),

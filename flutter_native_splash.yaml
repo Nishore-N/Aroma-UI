@@ -1,0 +1,11 @@
+flutter_native_splash:
+  color: "#FE734C"
+  # branding: assets/images/branding.png # Optional: If we had a static logo to center
+  # branding_mode: center
+
+  android_12:
+    color: "#FE734C"
+    # icon_background_color: "#FE734C"
+
+  ios: true
+  android: true

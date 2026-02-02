@@ -109,51 +109,48 @@ class IngredientTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 6,
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          // Dynamic ingredient image with MongoDB-first caching
-          IngredientImageThumbnail(
-            ingredientName: name,
-            size: 64,
-            imageUrl: imageUrl, // Pass the backend S3 URL
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Row(
+            children: [
+              // Dynamic ingredient image with MongoDB-first caching
+              IngredientImageThumbnail(
+                ingredientName: name,
+                size: 50,
+                imageUrl: imageUrl, // Pass the backend S3 URL
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: Color(0xFF212529),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      quantity,
+                      style: const TextStyle(
+                        color: Color(0xFF6C757D),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  "Qty: $quantity",
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F0)),
+      ],
     );
   }
 }

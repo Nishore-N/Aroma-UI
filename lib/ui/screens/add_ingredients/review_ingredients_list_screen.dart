@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../widgets/ingredient_row.dart';
+import '../../widgets/ingredient_card.dart';
 import '../preferences/cooking_preference_screen.dart';
 import '../../../data/models/ingredient_model.dart';
 import '../../../data/services/ingredient_image_service.dart';
@@ -27,6 +27,7 @@ class _ReviewIngredientsListScreenState
   /// 👉 Store price, quantity & metrics separately (clean approach)
   final Map<String, double> _priceMap = {};
   final Map<String, double> _quantityMap = {};
+  final Map<String, String> _unitMap = {}; // Store units
   final Map<String, String> _imageMap = {}; // Store image URLs
   bool _isLoading = true;
   String? _error;
@@ -66,6 +67,20 @@ class _ReviewIngredientsListScreenState
             double.tryParse(item["price"]?.toString() ?? "0") ?? 0.0;
         _quantityMap[id] =
             double.tryParse(item["qty"]?.toString() ?? "1.0") ?? 1.0;
+        
+        // Handle apx_unit_value and apx_unit from backend response
+        final apxValue = item["apx_unit_value"];
+        final apxUnit = item["apx_unit"];
+        String unitStr = "pcs"; // Default
+        
+        if (apxValue != null && apxUnit != null) {
+           _unitMap[id] = "$apxValue $apxUnit"; // Pre-format unit string like "454 gm" if both present
+        } else if (apxUnit != null) {
+           _unitMap[id] = apxUnit.toString();
+        } else {
+           _unitMap[id] = "pcs";
+        }
+
         _imageMap[id] = item["image_url"]?.toString() ?? ""; // Use image_url from new API
         debugPrint("🎯 [ReviewIngredientsListScreen] Image mapping for ${item["name"]}: ${_imageMap[id]}");
 
@@ -190,6 +205,7 @@ class _ReviewIngredientsListScreenState
                   _priceMap[id] = 0.0; // Price not used in home screen
                   _quantityMap[id] =
                       double.tryParse(quantityController.text) ?? 1.0;
+                  _unitMap[id] = "pcs"; // Default unit for added item
                 });
               }
               Navigator.pop(context);
@@ -291,6 +307,7 @@ class _ReviewIngredientsListScreenState
     setState(() {
       _priceMap.remove(id);
       _quantityMap.remove(id);
+      _unitMap.remove(id);
       _imageMap.remove(id); // Remove image URL
       _ingredients.removeAt(index);
     });
@@ -303,44 +320,56 @@ class _ReviewIngredientsListScreenState
       backgroundColor: const Color(0xFFFDFDFD),
 
       // ---------- HEADER ----------
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(160),
-        child: Container(
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(18, 40, 18, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      // Reset parent screen state before popping
-                      Navigator.pop(context, 'reset_state');
-                    },
-                    child: _circleIcon(Icons.arrow_back),
-                  ),
-                  GestureDetector(
-                    onTap: _showAddIngredientDialog,
-                    child: _addMoreBtn(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              const Text(
-                'Review Ingredients',
-                style:
-                    TextStyle(fontWeight: FontWeight.w900, fontSize: 28),
-              ),
-            ],
-          ),
-        ),
-      ),
+
 
       // ---------- BODY ----------
       body: Column(
         children: [
+          // Header moved to body for precise spacing control
+          Container(
+            color: Colors.white,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 48, 18, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context, 'reset_state');
+                            },
+                            child: _circleIcon(Icons.arrow_back),
+                          ),
+                          GestureDetector(
+                            onTap: _showAddIngredientDialog,
+                            child: _addMoreBtn(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Review Ingredients',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 28,
+                            color: Colors.black),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(
+                  height: 1, 
+                  thickness: 1, 
+                  color: Color(0xFFE5E5E5)
+                ),
+              ],
+            ),
+          ),
+          
           Expanded(child: _buildBody()),
 
           // ---------- PROCEED BUTTON ----------
@@ -447,25 +476,48 @@ class _ReviewIngredientsListScreenState
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.only(bottom: 20),
       itemCount: _ingredients.length,
       itemBuilder: (context, index) {
         final item = _ingredients[index];
         final price = _priceMap[item.id] ?? 0.0;
         final double qty = _quantityMap[item.id] ?? 1.0;
+        final String unitString = _unitMap[item.id] ?? "pcs";
         
-        return IngredientRow(
-          emoji: item.emoji,
-          name: item.name,
-          matchPercent: item.match,
-          quantity: qty,
-          onRemove: () => _removeIngredient(index),
-          onEdit: () => _showEditIngredientDialog(index),
-          useImageService: true,
-          imageUrl: _imageMap[item.id], // Pass image URL
+        // Logic: 
+        // 1. Quantity field: Display pure qty (e.g. "1.0").
+        // 2. Approx field: Display apx_unit_value + apx_unit if available (e.g. "454 gm").
+        
+        String quantityStr = '${qty.toStringAsFixed(qty.truncateToDouble() == qty ? 0 : 1)}';
+        String? approxStr;
+
+        if (unitString.contains(RegExp(r'\d'))) {
+            // unitString contains digits, meaning it has apx info
+            approxStr = unitString;
+        } 
+        
+        return Column(
+          children: [
+            IngredientCard(
+              emoji: item.emoji,
+              name: item.name,
+              quantity: quantityStr, 
+              approxQuantity: approxStr, 
+              match: '${item.match}%', 
+              onRemove: () => _removeIngredient(index),
+              onEdit: () => _showEditIngredientDialog(index), 
+              imageUrl: _imageMap[item.id], 
+            ),
+            const Divider(
+              height: 1, 
+              color: Color(0xFFF0F0F0), 
+              thickness: 1,
+            ),
+          ],
         );
       },
     );
+
   }
 
   Widget _circleIcon(IconData icon) {

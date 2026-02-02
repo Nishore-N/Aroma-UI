@@ -43,12 +43,15 @@ class RecipeFormatter {
     }
 
     final totalQty = qtyValue * servings;
-    // Format to avoid .0 if it's an integer
-    String formattedQty = totalQty == totalQty.toInt() ? totalQty.toInt().toString() : totalQty.toStringAsFixed(1);
+    // Format to avoid .0 if it's an integer, and handle decimals nicely
+    String formattedQty = totalQty.toStringAsFixed(2);
     
-    // Clean up trailing .0 if present from stringAsFixed
-    if (formattedQty.endsWith('.0')) {
-      formattedQty = formattedQty.substring(0, formattedQty.length - 2);
+    // Remove trailing zeros and decimal point if not needed
+    if (formattedQty.contains('.')) {
+      formattedQty = formattedQty.replaceAll(RegExp(r"0*$"), "");
+      if (formattedQty.endsWith(".")) {
+        formattedQty = formattedQty.substring(0, formattedQty.length - 1);
+      }
     }
     
     if (unit != null && unit.isNotEmpty) {

@@ -776,13 +776,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ],
             ),
 
-            _sectionDivider(),
+            const SizedBox(height: 26),
             
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 _tabItem("Ingredients", 0, _ingredientsKey),
+                const SizedBox(width: 30),
                 _tabItem("Cookware", 1, _cookwareKey),
+                const SizedBox(width: 30),
                 _tabItem("Preparation", 2, _preparationKey),
               ],
             ),
@@ -803,7 +805,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ),
             ),
 
-            _sectionDivider(),
+            const SizedBox(height: 24),
 
             Container(
               key: _cookwareKey,
@@ -813,7 +815,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ),
             ),
 
-            _sectionDivider(),
+            const SizedBox(height: 12),
+            Divider(thickness: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
 
             Container(
               key: _preparationKey,
@@ -1008,24 +1012,26 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         setState(() => selectedTab = index);
         _scrollTo(key);
       },
-      child: Column(
-        children: [
-          Text(text,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: selectedTab == index
-                    ? const Color(0xFFFF6A45)
-                    : Colors.black,
-              )),
-          if (selectedTab == index)
-            Container(
-              margin: const EdgeInsets.only(top: 4),
-              width: 100,
-              height: 2,
-              color: const Color(0xFFFF6A45),
-            ),
-        ],
+      child: Container(
+        padding: const EdgeInsets.only(bottom: 4),
+        decoration: selectedTab == index
+            ? const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: Color(0xFFFF6A45),
+                    width: 2,
+                  ),
+                ),
+              )
+            : null,
+        child: Text(text,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: selectedTab == index
+                  ? const Color(0xFFFF6A45)
+                  : Colors.black,
+            )),
       ),
     );
   }

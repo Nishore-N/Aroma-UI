@@ -236,10 +236,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                           
                           debugPrint('ShoppingList: ${item['name']} -> final unit: $unit (loaded: $_metricsLoaded)');
 
-  final bool stillNeeded = needsToBuy(
-    item['name'],
-    requiredQty,
-  );
+                          
+
 
 
                           return Container(
@@ -286,12 +284,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                                       ),
                                     ),
                                   ),
-                                  if (stillNeeded)
-                                    const Icon(
-                                      Icons.warning_amber_rounded,
-                                      color: Colors.orange,
-                                      size: 18,
-                                    ),
                                 ],
                               ),
                               subtitle: Column(

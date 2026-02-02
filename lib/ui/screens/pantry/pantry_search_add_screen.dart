@@ -205,27 +205,23 @@ class _PantrySearchAddScreenState extends State<PantrySearchAddScreen> {
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         final pantryState = context.read<PantryState>();
                         final shoppingService = context.read<ShoppingListService>();
                         final authService = context.read<AuthService>();
                         final String? userId = authService.user?.mobile_no;
 
                         // 1️⃣ SAVE TO PANTRY (normalized key) & SYNC REMOTE
-                         pantryState.updateQuantity(
+                        // Now handles both "Set Quantity" for existing and "Add Item" for new
+                        await pantryState.updateQuantity(
                           key,
                           quantity,
                           userId: userId,
+                          unit: selectedUnit,
                         );
 
-                        // 2️⃣ SAVE TO SHOPPING LIST (all quantities)
-                        shoppingService.addItem(
-                          name: key,
-                          quantity: quantity,
-                          unit: selectedUnit,
-                          category: "Pantry",
-                          imageUrl: null, // No imageUrl available in this screen
-                        );
+                        // 🚫 REMOVED: Saving to Shopping List (User reported bug)
+                        // Old logic: shoppingService.addItem(...)
 
                         setState(() {
                           pantryNames.add(key);

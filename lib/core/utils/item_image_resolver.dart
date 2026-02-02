@@ -38,11 +38,15 @@ class ItemImageResolver {
 
   /// Get image widget for ingredient - uses imageUrl if provided, otherwise uses backend generation
   static Widget getImageWidget(String itemName, {double size = 56, String? imageUrl}) {
+    final assetPath = getImage(itemName);
+    final isFallback = assetPath.contains(_fallback);
+    
     return IngredientImageThumbnail(
       ingredientName: itemName,
       size: size,
       imageUrl: imageUrl, 
-      assetFallbackPath: getImage(itemName), // 🔥 Pass local asset path as fallback
+      assetFallbackPath: assetPath, // 🔥 Pass local asset path as fallback
+      enableGeneration: isFallback, // Fallback to generation if asset not found
     );
   }
 

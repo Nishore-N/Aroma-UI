@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/utils/item_image_resolver.dart';
 import '../../../core/utils/extreme_spring_physics.dart';
@@ -391,9 +392,24 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
                   border: Border.all(color: const Color(0xFFFFB99A), width: 1.5),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFF6A45).withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      color: const Color(0xFFFE734C).withOpacity(0.05),
+                      offset: const Offset(0, 3),
+                      blurRadius: 7,
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFFFE734C).withOpacity(0.04),
+                      offset: const Offset(0, 12),
+                      blurRadius: 12,
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFFFE734C).withOpacity(0.03),
+                      offset: const Offset(0, 28),
+                      blurRadius: 17,
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFFFE734C).withOpacity(0.01),
+                      offset: const Offset(0, 50),
+                      blurRadius: 20,
                     ),
                   ],
                 ),
@@ -406,80 +422,112 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
 
                     GestureDetector(
                       onTap: _isTimerRunning ? _stopTimer : (_isTimerSet ? _startTimer : _showTimerBottomSheet),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _isTimerRunning 
-                              ? Colors.white 
-                              : (_isTimerSet && _secondsRemaining >= _totalSeconds && _totalSeconds > 0)
-                                  ? const Color(0xFFE8F5E9)
-                                  : const Color(0xFFFFF1EC),
-                          borderRadius: BorderRadius.circular(50),
-                          border: Border.all(
+                      child: !_isTimerSet 
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF1EC),
+                                borderRadius: BorderRadius.circular(50),
+                                border: Border.all(
+                                  color: const Color(0xFFFFC1A6),
+                                  width: 2,
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.schedule_rounded, // Clock icon
+                                    color: Color(0xFFFF6A45), // Orange color from image
+                                    size: 24,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Add Timer',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF555555), // Dark grey text
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                        : Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
                             color: _isTimerRunning 
-                                ? const Color(0xFFFF6A45)
+                                ? Colors.white 
                                 : (_isTimerSet && _secondsRemaining >= _totalSeconds && _totalSeconds > 0)
-                                    ? const Color(0xFF81C784)
-                                    : const Color(0xFFFFC1A6),
-                            width: _isTimerRunning ? 2.5 : 2,
-                          ),
-                          boxShadow: _isTimerRunning && _secondsRemaining <= 10
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.red.withOpacity(0.3),
-                                    blurRadius: 20,
-                                    spreadRadius: 2,
-                                  )
-                                ]
-                              : (_isTimerSet && _secondsRemaining >= _totalSeconds && _totalSeconds > 0)
-                                  ? [
-                                      BoxShadow(
-                                        color: const Color(0xFF4CAF50).withOpacity(0.3),
-                                        blurRadius: 20,
-                                        spreadRadius: 2,
-                                      )
-                                    ]
-                                  : null,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _isTimerRunning 
-                                  ? Icons.timer_outlined
-                                  : (_isTimerSet && _secondsRemaining >= _totalSeconds && _totalSeconds > 0)
-                                      ? Icons.check_circle_outline
-                                      : Icons.timer_outlined,
+                                    ? const Color(0xFFE8F5E9)
+                                    : const Color(0xFFFFF1EC),
+                            borderRadius: BorderRadius.circular(50),
+                            border: Border.all(
                               color: _isTimerRunning 
-                                  ? const Color(0xFFFF6A45) 
+                                  ? const Color(0xFFFF6A45)
                                   : (_isTimerSet && _secondsRemaining >= _totalSeconds && _totalSeconds > 0)
-                                      ? const Color(0xFF4CAF50)
-                                      : const Color(0xFF555555),
-                              size: 24,
+                                      ? const Color(0xFF81C784)
+                                      : const Color(0xFFFFC1A6),
+                              width: _isTimerRunning ? 2.5 : 2,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _isTimerRunning 
-                                  ? _formatTime(_secondsRemaining)
-                                  : _isTimerSet 
-                                      ? (_secondsRemaining >= _totalSeconds && _totalSeconds > 0)
-                                          ? 'Completed'
-                                          : '00:00'
-                                      : 'Add Timer',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                            boxShadow: _isTimerRunning && _secondsRemaining <= 10
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.red.withOpacity(0.3),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                    )
+                                  ]
+                                : (_isTimerSet && _secondsRemaining >= _totalSeconds && _totalSeconds > 0)
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF4CAF50).withOpacity(0.3),
+                                          blurRadius: 20,
+                                          spreadRadius: 2,
+                                        )
+                                      ]
+                                    : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _isTimerRunning 
+                                    ? Icons.timer_outlined
+                                    : (_isTimerSet && _secondsRemaining >= _totalSeconds && _totalSeconds > 0)
+                                        ? Icons.check_circle_outline
+                                        : Icons.timer_outlined,
                                 color: _isTimerRunning 
-                                    ? const Color(0xFFFF6A45)
+                                    ? const Color(0xFFFF6A45) 
                                     : (_isTimerSet && _secondsRemaining >= _totalSeconds && _totalSeconds > 0)
                                         ? const Color(0xFF4CAF50)
                                         : const Color(0xFF555555),
+                                size: 24,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Text(
+                                _isTimerRunning 
+                                    ? _formatTime(_secondsRemaining)
+                                    : _isTimerSet 
+                                        ? (_secondsRemaining >= _totalSeconds && _totalSeconds > 0)
+                                            ? 'Completed'
+                                            : '00:00'
+                                        : 'Add Timer',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: _isTimerRunning 
+                                      ? const Color(0xFFFF6A45)
+                                      : (_isTimerSet && _secondsRemaining >= _totalSeconds && _totalSeconds > 0)
+                                          ? const Color(0xFF4CAF50)
+                                          : const Color(0xFF555555),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                     ),
                   ],
                 ),
@@ -827,14 +875,14 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
       if (match.start > currentPos) {
         spans.add(TextSpan(
           text: text.substring(currentPos, match.start),
-          style: const TextStyle(fontSize: 18, height: 1.6, color: Color(0xFF2D2D2D)),
+          style: const TextStyle(fontSize: 16, height: 1.6, color: Color(0xFF2D2D2D)),
         ));
       }
       
       spans.add(TextSpan(
         text: text.substring(match.start, match.end),
         style: const TextStyle(
-          fontSize: 18,
+          fontSize: 16,
           height: 1.6,
           fontWeight: FontWeight.w900,
           color: Color(0xFFC04423),
@@ -846,7 +894,7 @@ class _CookingStepsScreenState extends State<CookingStepsScreen> {
     if (currentPos < text.length) {
       spans.add(TextSpan(
         text: text.substring(currentPos),
-        style: const TextStyle(fontSize: 18, height: 1.6, color: Color(0xFF2D2D2D)),
+        style: const TextStyle(fontSize: 16, height: 1.6, color: Color(0xFF2D2D2D)),
       ));
     }
 

@@ -266,7 +266,7 @@ class _RecipeListScreenState extends State<RecipeListScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(18, 30, 18, 140),
+        padding: const EdgeInsets.fromLTRB(18, 50, 18, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -363,29 +363,62 @@ class _RecipeListScreenState extends State<RecipeListScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 26),
-
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      color: const Color(0xFFFFF1EA),
-                    ),
-                    child: Row(
-                      children: const [
-                        Icon(Icons.support_agent, size: 48),
-                        SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            "Not what you're looking for?\nHelp us improve →",
-                            style: TextStyle(
-                              fontSize:16,
-                              fontWeight: FontWeight.w700,
+                  const SizedBox(height: 70), // Increased spacing to move box further down
+                  
+                  Stack(
+                    alignment: Alignment.bottomLeft,
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(140, 30, 22, 30), // Increased vertical padding to enlarge box
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(22),
+                          color: const Color(0xFFFFF1EA),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Not what you're looking for?",
+                              style: TextStyle(
+                                fontSize: 17,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        )
-                      ],
-                    ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: const [
+                                Flexible(
+                                  child: Text(
+                                    "Help us improve",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Icon(Icons.arrow_forward, color: Colors.black, size: 24),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        left: 25, // Moved image right
+                        bottom: 0,
+                        child: Image.asset(
+                          'assets/images/boy.png', 
+                          height: 142, // Slightly increased height for better proportion with spacing
+                          fit: BoxFit.contain
+                        ), 
+                      ),
+                    ],
                   ),
                 ],
               ),

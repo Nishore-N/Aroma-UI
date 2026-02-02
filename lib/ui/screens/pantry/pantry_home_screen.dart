@@ -305,13 +305,23 @@ class _PantryHomeScreenState extends State<PantryHomeScreen> with WidgetsBinding
               children: [
                 // ---------- SEARCH ----------
                 GestureDetector(
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => PantrySearchAddScreen(),
+                        builder: (_) => const PantrySearchAddScreen(),
                       ),
                     );
+                    
+                    // Refresh logic after returning from add screen
+                    if (mounted) {
+                       final pantryState = Provider.of<PantryState>(context, listen: false);
+                       // Trigger generation for any newly added items that might lack images
+                       _generateMissingImages(pantryState.items.map((e) => {
+                         'name': e.name,
+                         'imageUrl': e.imageUrl,
+                       }).toList());
+                    }
                   },
                   child: AbsorbPointer(
                     child: TextField(

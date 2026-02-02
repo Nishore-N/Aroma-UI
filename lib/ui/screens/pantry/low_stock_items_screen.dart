@@ -142,7 +142,7 @@ class _LowStockItemsScreenState extends State<LowStockItemsScreen> {
   @override
   Widget build(BuildContext context) {
     final pantryState = context.watch<PantryState>();
-    final lowStockItems = pantryState.items.where((item) => item.quantity > 0 && item.quantity <= 3).toList();
+    final lowStockItems = pantryState.items.where((item) => pantryState.isLowStock(item.name)).toList();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -206,47 +206,26 @@ class _LowStockItemsScreenState extends State<LowStockItemsScreen> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text("Remove Item"),
-                        content: Text("Are you sure you want to remove $name from pantry?"),
+                        title: const Text("Dismiss Item"),
+                        content: Text("Remove $name from low stock list? (Item will remain in pantry)"),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             child: const Text("Cancel"),
                           ),
                           TextButton(
-                            onPressed: () async {
-                              final authService = Provider.of<AuthService>(context, listen: false);
-                              final String? userId = authService.user?.mobile_no;
+                            onPressed: () {
+                              Navigator.pop(context);
+                              pantryState.hideFromLowStock(name);
                               
-                              Navigator.pop(context); // Close dialog
-                              showDialog(
-                                context: context,
-                                barrierDismissible: false,
-                                builder: (_) => const Center(child: CircularProgressIndicator()),
-                              );
-
-                              try {
-                                await pantryState.removeItems([name], userId: userId);
-                                if (mounted) {
-                                  Navigator.pop(context); // Close loading
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("$name removed from pantry"),
-                                      backgroundColor: Colors.green,
-                                      duration: const Duration(seconds: 1),
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (mounted) {
-                                  Navigator.pop(context); // Close loading
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("Error removing $name: $e"),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("$name dismissed from low stock"),
+                                    backgroundColor: Colors.orange,
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
                               }
                             },
                             child: const Text("Remove"),

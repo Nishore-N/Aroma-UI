@@ -128,29 +128,33 @@ class IngredientsNeededScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ---------------- STICKY HEADER ----------------
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                    Container(
-                    height: 42,
-                    width: 42,
+                    height: 45,
+                    width: 45,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
+                      color: Colors.white,
                       shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black12),
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.black),
+                      icon: const Icon(Icons.arrow_back, color: Colors.black, size: 22),
                       onPressed: () => Navigator.pop(context),
+                      padding: EdgeInsets.zero,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(height: 20),
                   const Text(
                     "Ingredients Needed",
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 26,
                       fontWeight: FontWeight.w900,
                       color: Colors.black,
                     ),
@@ -158,6 +162,7 @@ class IngredientsNeededScreen extends StatelessWidget {
                 ],
               ),
             ),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F0)),
 
             Expanded(
               child: SingleChildScrollView(
@@ -166,40 +171,11 @@ class IngredientsNeededScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // ---------------- RECIPE SUMMARY ----------------
-                    if (recipeImage.isNotEmpty)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: CachedNetworkImage(
-                          imageUrl: recipeImage,
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+
                     
-                    const SizedBox(height: 16),
+
                     
-                    Text(
-                      recipeName,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    
-                    if (description.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade700,
-                          height: 1.4,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+
 
                     const SizedBox(height: 20),
 

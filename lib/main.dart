@@ -14,10 +14,10 @@ import 'package:aroma/data/services/app_state_persistence_service.dart';
 
 // UI Screens
 import 'package:aroma/ui/screens/auth/auth_wrapper.dart';
-import 'package:aroma/ui/screens/splash/splash_screen.dart';
 
 // Theme
 import 'package:aroma/core/theme/app_theme.dart';
+import 'package:aroma/core/utils/item_image_resolver.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +29,9 @@ void main() async {
 
     // Initialize AuthService
     final authService = AuthService();
+
+    // Initialize local asset resolver for pantry images
+    await ItemImageResolver.init();
 
     // Mark session as inactive (app starting fresh)
     await AppStateService.markSessionInactive();
@@ -179,10 +182,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       theme: AppTheme.lightTheme,
 
-      // ✅ Splash screen is now the FIRST screen
-      home: SplashScreen(
-        authService: widget.authService,
-      ),
+      home: const AuthWrapper(),
 
       // 🔁 Used internally after splash
       routes: {

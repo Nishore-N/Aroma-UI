@@ -6,6 +6,7 @@ import '../data/services/pantry_crud_service.dart';
 class PantryState extends ChangeNotifier {
   final Map<String, String> _itemImages = {};
   final List<PantryItem> _items = [];
+  final Set<String> _hiddenLowStockItems = {}; // Track dismissed low stock items
 
   // Consistent normalization for image keys
   String _normalizeName(String name) => name.toLowerCase().trim();
@@ -16,7 +17,11 @@ class PantryState extends ChangeNotifier {
 
   // Centralized low stock count logic (qty > 0 and qty <= 3)
   int get lowStockCount {
-    return _items.where((item) => item.quantity > 0 && item.quantity <= 3).length;
+    return _items.where((item) => 
+      item.quantity > 0 && 
+      item.quantity <= 3 && 
+      !_hiddenLowStockItems.contains(item.name)
+    ).length;
   }
 
   // Get image for an item - prioritize memory cache, then item property
@@ -117,21 +122,23 @@ class PantryState extends ChangeNotifier {
   }
 
   // UPDATE QUANTITY (Sync with Remote)
-  Future<void> updateQuantity(String name, double qty, {String? userId}) async {
+  Future<void> updateQuantity(String name, double qty, {String? userId, String unit = 'pcs'}) async {
     try {
       if (qty <= 0) {
         await removeItems([name], userId: userId);
         return;
       }
 
-      final index = _items.indexWhere((e) => _normalizeName(e.name) == _normalizeName(name));
+      final normalized = _normalizeName(name);
+      final index = _items.indexWhere((e) => _normalizeName(e.name) == normalized);
+      
       if (index >= 0) {
         final item = _items[index];
         _items[index] = PantryItem(
           id: item.id,
           name: item.name,
           quantity: qty,
-          unit: item.unit,
+          unit: unit, // Use passed unit if provided, though usually we keep existing
           imageUrl: item.imageUrl,
           price: item.price,
           source: item.source,
@@ -146,7 +153,31 @@ class PantryState extends ChangeNotifier {
           name, 
           qty, 
           userId: userId,
-          unit: item.unit,
+          unit: unit,
+        );
+        
+        await _savePantry();
+        notifyListeners();
+      } else {
+        // 🆕 ITEM NOT FOUND LOCALLY - ADD NEW
+        debugPrint("🆕 Adding new pantry item: $name ($qty $unit)");
+        
+        final newItem = PantryItem(
+          name: name,
+          quantity: qty,
+          unit: unit,
+          imageUrl: getItemImage(name), // Try to resolve image if cached
+        );
+        
+        _items.add(newItem);
+        notifyListeners(); // Optimistic UI update
+
+        // Remote Add
+        await PantryCrudService().addSingleItem(
+          name, 
+          qty, 
+          userId: userId, 
+          // price: 0.0, // Default
         );
         
         await _savePantry();
@@ -203,7 +234,13 @@ class PantryState extends ChangeNotifier {
   }
 
   bool isLowStock(String name, {double threshold = 3}) {
-    return getQty(name) > 0 && getQty(name) <= threshold;
+    return getQty(name) > 0 && getQty(name) <= threshold && !_hiddenLowStockItems.contains(name);
+  }
+
+  // HIDE FROM LOW STOCK (Without Deleting)
+  void hideFromLowStock(String name) {
+    _hiddenLowStockItems.add(name);
+    notifyListeners();
   }
 
   // CLEAR ALL ITEMS

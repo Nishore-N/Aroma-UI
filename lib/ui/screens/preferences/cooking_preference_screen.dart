@@ -53,7 +53,7 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
     ],
   };
 
-  final Map<String, bool> _expanded = {};
+
   final Map<String, String> _selectedPerSection = {};
   final Set<String> _selectedMealTypes = {}; // For weekly multi-select
 
@@ -66,7 +66,6 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
         List<Map<String, dynamic>>.from(widget.ingredients);
 
     options.forEach((k, v) {
-      _expanded[k] = false;
       _selectedPerSection[k] = v.first;
     });
 
@@ -101,7 +100,7 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
       bottomNavigationBar: _bottomSection(),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 120),
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -178,8 +177,8 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
   // SECTION BUILDER
   // ---------------------------
   Widget _buildSection(String title, List<String> items) {
-    final isExpanded = _expanded[title]!;
-    final visibleItems = isExpanded ? items : items.take(4).toList();
+    // Show all items by default
+    final visibleItems = items;
     final selectedItem = _selectedPerSection[title]!;
 
     return Padding(
@@ -206,18 +205,6 @@ class _CookingPreferenceScreenState extends State<CookingPreferenceScreen> {
                 })
                 .toList(),
           ),
-          if (items.length > 4)
-            GestureDetector(
-              onTap: () => setState(() => _expanded[title] = !isExpanded),
-              child: Text(
-                isExpanded ? "View Less" : "View More",
-                style: const TextStyle(
-                  color: Color(0xFFFF6A45),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
         ],
       ),
     );

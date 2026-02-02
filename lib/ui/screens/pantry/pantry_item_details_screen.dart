@@ -38,10 +38,13 @@ class _PantryItemDetailsScreenState extends State<PantryItemDetailsScreen> {
     final unit = widget.item['unit'] ?? 'kg';
     final category = CategoryEngine.getCategory(name);
     final pantry = context.watch<PantryState>();
+    final rawUrl = pantry.getItemImage(name) ?? widget.item['imageUrl'];
+    final safeUrl = (rawUrl != null && rawUrl.toString().isNotEmpty) ? rawUrl.toString() : null;
+
     final imagePath = ItemImageResolver.getImageWidget(
                           name,
                           size: 120,
-                          imageUrl: pantry.getItemImage(name) ?? widget.item['imageUrl'],
+                          imageUrl: safeUrl,
                         );
 
 final double currentQty = pantry.getQty(widget.item['name']);
@@ -86,7 +89,7 @@ final List<FlSpot> usageSpots = List.generate(7, (index) {
                   ItemImageResolver.getImageWidget(
                     name,
                     size: 60,
-                    imageUrl: pantry.getItemImage(name) ?? widget.item['imageUrl'],
+                    imageUrl: safeUrl,
                   ),
                   const SizedBox(width: 12),
                   Column(

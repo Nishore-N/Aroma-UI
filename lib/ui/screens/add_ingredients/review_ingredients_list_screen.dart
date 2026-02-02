@@ -361,6 +361,38 @@ class _ReviewIngredientsListScreenState
             ),
             child: GestureDetector(
               onTap: () async {
+                if (_ingredients.isEmpty) {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      title: const Text(
+                        "No Ingredients",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      content: const Text(
+                        "Please select ingredients to proceed",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text(
+                            "OK",
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+
                 // Continue with normal flow - no MongoDB storage for speed
                 final ingredientsPayload = _ingredients.map((e) {
                   return {

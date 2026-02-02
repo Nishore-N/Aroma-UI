@@ -97,6 +97,7 @@ class StepIngredientsBottomSheet extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
+                      color: Colors.black,
                     ),
                   ),
                   if (allIngredients != null)
@@ -199,6 +200,7 @@ class StepIngredientsBottomSheet extends StatelessWidget {
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w800,
+                                        color: Colors.black,
                                       ),
                                     ),
                                     if (qty.isNotEmpty) ...[
